@@ -1,5 +1,4 @@
-#ifndef _GTRANSFORM_H
-#define _GTRANSFORM_H
+#pragma once
 
 #include <eigen3/Eigen/Dense>
 #include <tuple>
@@ -206,5 +205,3 @@ inline AdMatrixd Adjoint(const SE3d & T)
 }
 
 }
-
-#endif

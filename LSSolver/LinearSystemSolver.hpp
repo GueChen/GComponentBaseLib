@@ -93,7 +93,7 @@ public:
 			double residual = (A * _x - b).lpNorm<2>();
 			if (residual < _MaxResidual)
 			{
-				std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
+                //std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
 				break;
 			}
 		}
@@ -160,7 +160,7 @@ public:
 			double residual = (A * _x - b).lpNorm<2>();
 			if (residual < _MaxResidual)
 			{
-				std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
+                //std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
 				break;
 			}
 		}

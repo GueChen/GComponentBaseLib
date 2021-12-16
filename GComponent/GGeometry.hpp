@@ -1,4 +1,5 @@
-//#define _CONSOLE_DEBUG
+#pragma once
+
 #include <eigen3/Eigen/Dense>
 #include <functional>
 #include <algorithm>
@@ -6,6 +7,7 @@
 #include <vector>
 
 #include "GTransform.hpp"
+
 #include "../LSSolver/LinearSystemSolver.hpp"
 
 namespace GComponent
@@ -157,8 +159,7 @@ function<vec3d(double)> GetCubicSplineFunction(const vector<vec3d>& pList, doubl
 	
 	Ms.block(0, 0, 1, 3) = vec3Td(M0, M0, M0);
 	Ms.block(n - 1, 0, 1, 3) = vec3Td(Mn, Mn, Mn);
-	std::cout << "Ms:=\n" << Ms << std::endl << std::endl;
-
+    //std::cout << "Ms:=\n" << Ms << std::endl << std::endl;
 
 	auto SiFun = []
 	(const pair<double, double>& M,
@@ -337,20 +338,19 @@ BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, unsigned order, bool isI
 		RegionNum = N - 2 * PadNum - 1
 		; mode)
 	{
-		using enum BSplineNodeDefinition;
-	case Uniform: {
+    case BSplineNodeDefinition::Uniform: {
 		const double BorderPadding = 1.0 / RegionNum * PadNum;
 		_uList = Linspace(-BorderPadding, 1.0 + BorderPadding, N);
 		break;
 	}
-	case QuasiUniform: {
+    case BSplineNodeDefinition::QuasiUniform: {
 		auto temp = Linspace(0.0, 1.0, RegionNum + 1);
 		_uList.insert(_uList.cbegin(), PadNum, 0.0);
 		_uList.insert(_uList.cbegin() + PadNum, PadNum, 1.0);
 		_uList.insert(_uList.cbegin() + PadNum, temp.begin(), temp.end());
 		break;
 	}
-	case NonUniform:
+    case BSplineNodeDefinition::NonUniform:
 
 		break;
 	}
@@ -481,10 +481,12 @@ void BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 
 function<twistd(double t)> GetDecompositionFunction(const twistd & t_ini, const twistd & t_end)
 {
-	const vec3d& w_ini = t_ini.block(0, 0, 3, 1),
-	     		& v_ini = t_ini.block(3, 0, 3, 1),
-			& w_end = t_end.block(0, 0, 3, 1),
-			& v_end = t_end.block(3, 0, 3, 1);
+    const SE3d T_ini = ExpMapping(t_ini),
+               T_end = ExpMapping(t_end);
+    const vec3d & w_ini = t_ini.block(0, 0, 3, 1),
+                & v_ini = T_ini.block(0, 3, 3, 1),
+                & w_end = t_end.block(0, 0, 3, 1),
+                & v_end = T_end.block(0, 3, 3, 1);
 	Matrix3d R_ini = Roderigues(w_ini), R_end = Roderigues(w_end);
 	auto LineFun = [R_ini = R_ini, v_ini = v_ini,
 			        R_end = R_end, v_end = v_end]
