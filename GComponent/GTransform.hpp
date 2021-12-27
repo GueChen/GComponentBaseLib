@@ -6,10 +6,12 @@
 namespace GComponent {
 using Eigen::Matrix;
 using Eigen::Vector3d;
+using Eigen::Vector4d;
 using Eigen::Matrix3d;
 using Eigen::Matrix4d;
 using std::pair;
 using vec3d = Vector3d;
+using vec4d = Vector4d;
 using twistd = Eigen::Matrix<double, 6, 1>;
 using SE3d = Eigen::Matrix4d;
 using AdMatrixd = Eigen::Matrix<double, 6, 6>;
@@ -45,6 +47,11 @@ class AdjointSE3 : public Matrix<_Scaler, 6, 6>
 
 };
 
+// Rt + p
+inline vec3d affineProduct(const Matrix4d & lmat, const vec3d & point)
+{
+    return lmat.block(0, 0, 3, 3)* point + lmat.block(0, 3, 3, 1);
+}
 
 inline pair<vec3d, double> GetRotateAxisAngle(const vec3d& _w)
 {
@@ -92,6 +99,14 @@ inline Matrix3d Roderigues(const vec3d& _v)
 	double _theta = _v.norm();
 	Matrix3d _cross_m = CrossMatrix(_v.normalized());
 	return Roderigues(_cross_m, _theta);
+}
+
+inline Matrix3d DiffRoderigues(const Matrix3d& _cross_m, double _theta)
+{
+    return Matrix3d(
+        Matrix3d::Identity() +
+        cos(_theta) * _cross_m +
+        (1 + sin(_theta)) * (_cross_m * _cross_m));
 }
 
 inline vec3d LogMapSO3Toso3(const Matrix3d& mat)
@@ -156,6 +171,24 @@ inline SE3d ExpMapping(const twistd & _t)
 {
 	auto && [S, _theta] = GetTwistAxisAngle(_t);
 	return ExpMapping(S, _theta);
+}
+
+inline SE3d DiffExpMapping(const twistd& _norm_t, double _theta)
+{
+    const vec3d& w = _norm_t.block(0, 0, 3, 1);
+    const vec3d& v = _norm_t.block(3, 0, 3, 1);
+
+    SE3d mat = SE3d::Identity();
+    Matrix3d _cross_axis = CrossMatrix(w.normalized());
+    mat.block(0, 0, 3, 3) = DiffRoderigues(_cross_axis, _theta);
+
+    Matrix3d G =
+        Matrix3d::Identity()
+        + (1 + sin(_theta)) * _cross_axis
+        + (1 - cos(_theta)) * _cross_axis * _cross_axis;
+    mat.block(0, 3, 3, 1) = G * v;
+
+    return mat;
 }
 
 inline twistd ScrewToTwist(const vec3d & _q, const vec3d & _s, double h)
