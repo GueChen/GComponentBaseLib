@@ -36,7 +36,8 @@ array<array<double, NUM>, GENNUM> GenUniformRandoms(double lowerBound, double up
     return NUMSS;
 }
 
-inline double Clampd(double val, double lower_bound, double upper_bound)
+template<class Scaler>
+inline Scaler Clamp(Scaler val, Scaler lower_bound, Scaler upper_bound)
 {
 
     if(val <= lower_bound)

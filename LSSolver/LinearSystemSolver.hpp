@@ -1,10 +1,37 @@
 #pragma once
 #include <Eigen/LU>
+#include <Eigen/svd>
 #include <Eigen/dense>
 #include <Eigen/core>
 
 #include "PenroseInverse.hpp"
 using Eigen::Matrix;
+
+template<class _Scaler>
+class DynamicLeastNormSolver {
+	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+	using SVD   = Eigen::JacobiSVD<_Tdyn>;
+public:
+	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b) {
+		SVD svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		return svd.solve(b);
+	}
+};
+
+template<class _Scaler>
+class DynamicWeightedLeastNormSolver {
+	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+	using SVD = Eigen::JacobiSVD<_Tdyn>;
+public:
+    DynamicWeightedLeastNormSolver(const _Tdyn& weight_mat) : _weight_mat_inverse(weight_mat.inverse()) {}
+
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) {
+		SVD svd(A * _weight_mat_inverse, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		return _weight_mat_inverse * svd.solve(b);
+	}
+private:
+	_Tdyn _weight_mat_inverse;
+};
 
 template<unsigned Cow, unsigned Row>
 class StaticInverseSolver {
@@ -25,6 +52,7 @@ public:
 
 class DynamicInverseSolver {
 	using _Tdyn = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
+	using _Self = DynamicInverseSolver;
 public:
 	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b) 
 	{
@@ -35,6 +63,11 @@ public:
 		PenroseInverseSolver pinv;
 		return pinv(A) * b;
 	}
+
+	DynamicInverseSolver(_Self& other) = delete;
+	DynamicInverseSolver(_Self&& other) = delete;
+	_Self& operator=(_Self& other) = delete;
+	_Self& operator=(_Self&& other) = delete;
 };
 
 class JacobiSolver {
@@ -66,7 +99,7 @@ public:
 class GaussSeidelSolver {
 	using _Tdyn = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 public:
-	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
 	{
 		const unsigned ROW = A.rows(), COL = A.cols();
 		_Tdyn LD = Eigen::MatrixXd::Zero(ROW, COL), U = LD;
@@ -133,7 +166,7 @@ class SOR_Solver {
 public:
 	explicit SOR_Solver(double _o = 1.25) :_omega(_o) {}
 	
-	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
 	{
 		const unsigned ROW = A.rows(), COL = A.cols();
 		_Tdyn LD = Eigen::MatrixXd::Zero(ROW, COL), U = LD;

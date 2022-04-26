@@ -42,7 +42,6 @@ inline _AnyVec Lerp(const _AnyVec & v1, const _AnyVec& v2, double t)
 	return tmp;
 }
 
-template <double>
 inline double Lerp(const double & d1, const double& d2, double t)
 {
     return (1 - t) * d1 + t * d2;
@@ -605,7 +604,9 @@ GetDecompositionFunction(const twistd & t_ini, const twistd & t_end)
 			        R_end = R_end, v_end = v_end]
 	(double t)->twistd {
 		twistd twist;
-		twist.block(0, 0, 3, 1) = LogMapSO3Toso3(R_ini * Roderigues(LogMapSO3Toso3(R_ini.transpose() * R_end) * t));
+        twist.block(0, 0, 3, 1) = LogMapSO3Toso3((R_ini * Roderigues(
+														 (LogMapSO3Toso3(
+														 (R_ini.transpose() * R_end).eval()) * t).eval())).eval());
 		twist.block(3, 0, 3, 1) = Lerp(v_ini, v_end, t);
 		return twist;
 	};
