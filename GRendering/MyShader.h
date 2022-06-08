@@ -16,7 +16,7 @@ class MyShader
 public:
 	//program id
 #pragma region memberData
-	unsigned int ID;
+	unsigned int model_id_;
 #pragma endregion
 	//constructor
 #pragma region constructor
@@ -24,7 +24,7 @@ public:
 #pragma endregion
 	//destructor
 #pragma region Destructor
-	~MyShader() { glDeleteProgram(ID); }
+	~MyShader() { glDeleteProgram(model_id_); }
 #pragma endregion
 	// member Function
 #pragma region memberFun
@@ -47,7 +47,7 @@ public:
 	void setPointLight(const PointLight light, int idx = 0);
 
 	// Operator
-	bool operator==(const MyShader& s) { return this->ID == s.ID; }
+	bool operator==(const MyShader& s) { return this->model_id_ == s.model_id_; }
 #pragma endregion	
 
 private:

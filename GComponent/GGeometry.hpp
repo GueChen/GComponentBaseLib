@@ -16,9 +16,12 @@ using std::function;
 using std::tuple;
 using std::vector;
 using DynMatrixd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
-using twistd = Eigen::Matrix<double, 6, 1>;
-using vec3d = Eigen::Vector3d;
-using vec3Td = Eigen::Matrix<double, 1, 3>;
+using Twistd = Eigen::Matrix<double, 6, 1>;
+using Vec3d = Eigen::Vector3d;
+using Vec3dT = Eigen::Matrix<double, 1, 3>;
+using Eigen::Vector3d;
+using Eigen::Matrix3d;
+using Eigen::Matrix4d;
 
 /// <summary>
 /// 插值函数，目前仅支持列向量插值，待完善为行列均支持
@@ -74,23 +77,44 @@ inline vector<double> Linspace(const double lowerBound, const double upperBound,
 /// <param name="p_2"></param>
 /// <param name="p_3"></param>
 /// <returns></returns>
-inline vec3d GetCenterOfCircle(const vec3d & p_1, const vec3d & p_2, const vec3d & p_3)
+inline Vec3d GetCenterOfCircle(const Vec3d & p_1, const Vec3d & p_2, const Vec3d & p_3)
 {
-	Matrix3d A;	vec3d x,b;
+	Matrix3d GetThis;	Vec3d x,b;
 	
-	vec3Td vec_1 = (p_2 - p_1).transpose(),
+	Vec3dT vec_1 = (p_2 - p_1).transpose(),
 		   vec_2 = (p_3 - p_1).transpose(),
 		   vec_cross = vec_1.cross(vec_2);
-	A.block(0, 0, 1, 3) = vec_1;
-	A.block(1, 0, 1, 3) = vec_2;
-	A.block(2, 0, 1, 3) = vec_cross;
-	b = vec3d(vec_1.dot((p_1 + p_2) / 2.0f),
+	GetThis.block(0, 0, 1, 3) = vec_1;
+	GetThis.block(1, 0, 1, 3) = vec_2;
+	GetThis.block(2, 0, 1, 3) = vec_cross;
+	b = Vec3d(vec_1.dot((p_1 + p_2) / 2.0f),
 		      vec_2.dot((p_3 + p_1) / 2.0f),
 			  vec_cross.dot(p_3));
 	
-	x = A.inverse() * b;
+	x = GetThis.inverse() * b;
 	return x;
 }
+
+/// <summary>
+/// 获取从 v1 到 v2 的旋转向量轴角表示
+/// v1 -> v2
+/// v2 = [rot]^ * v1
+/// </summary>
+/// <typeparam name="_Scaler"></typeparam>
+/// <param name="v1"></param>
+/// <param name="v2"></param>
+/// <returns></returns>
+template<class _Scaler>
+Vector<_Scaler, 3> GetRotateAxisAngleFrom2Vec(const Vector<_Scaler, 3>& v1, const Vector<_Scaler, 3>& v2)
+{
+	Vector<_Scaler, 3> v1_norm = v1.normalized(),
+					   v2_norm = v2.normalized();
+	Vector<_Scaler, 3> n = v1_norm.cross(v2_norm).normalized();
+	_Scaler angle = acos(v1_norm.dot(v2_norm));
+
+	return (angle * n).eval();
+}
+
 
 // FIXME: 与GetCircleFunction冗余
 /// <summary>
@@ -100,9 +124,9 @@ inline vec3d GetCenterOfCircle(const vec3d & p_1, const vec3d & p_2, const vec3d
 /// <param name="p_2"></param>
 /// <param name="p_3"></param>
 /// <returns></returns>
-inline double GetRadiusOfCircle(const vec3d & p_1, const vec3d& p_2, const vec3d &p_3)
+inline double GetRadiusOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec3d &p_3)
 {
-    vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
+    Vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
     return ( p_1 - coc).norm();
 }
 
@@ -114,11 +138,11 @@ inline double GetRadiusOfCircle(const vec3d & p_1, const vec3d& p_2, const vec3d
 /// <param name="p_2"></param>
 /// <param name="p_3"></param>
 /// <returns></returns>
-inline double GetArcDeltaOfCircle(const vec3d & p_1, const vec3d& p_2, const vec3d &p_3)
+inline double GetArcDeltaOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec3d &p_3)
 {
-    vec3d rotateAxis = ((p_1 - p_2).cross(p_3 - p_1)).normalized();
-    vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
-    vec3d vec_ini = (p_1 - coc).normalized(),
+    Vec3d rotateAxis = ((p_1 - p_2).cross(p_3 - p_1)).normalized();
+    Vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
+    Vec3d vec_ini = (p_1 - coc).normalized(),
           vec_end = (p_3 - coc).normalized();
 
     double angle =  acos(vec_ini.dot(vec_end));
@@ -134,22 +158,22 @@ inline double GetArcDeltaOfCircle(const vec3d & p_1, const vec3d& p_2, const vec
 /// <param name="t_ini"></param>
 /// <param name="t_end"></param>
 /// <returns></returns>
-inline function<twistd(double)> GetScrewLineFunction(const SE3d& T_ini, const SE3d& T_end)
+inline function<Twistd(double)> GetScrewLineFunction(const SE3d& T_ini, const SE3d& T_end)
 {
-    const vec3d
+    const Vec3d
         & pos_ini = T_ini.block(0, 3, 3, 1),
         & pos_end = T_end.block(0, 3, 3, 1);
-    twistd
+    Twistd
           t_ini   = LogMapSE3Tose3(T_ini),
           t_end   = LogMapSE3Tose3(T_end);
-    const vec3d
+    const Vec3d
         & w_ini   = t_ini.block(0, 0, 3, 1),
         & w_end   = t_end.block(0, 0, 3, 1);
 
     auto LineFunction = [pos_ini = pos_ini, pos_end = pos_end, w_ini = w_ini, w_end = w_end](double t){
         SE3d  T_cur   = SE3d::Identity();
-        vec3d pos_cur = Lerp(pos_ini, pos_end, t);
-        vec3d w_cur   = Lerp(w_ini, w_end, t);
+        Vec3d pos_cur = Lerp(pos_ini, pos_end, t);
+        Vec3d w_cur   = Lerp(w_ini, w_end, t);
         T_cur.block(0, 0, 3, 3) = Roderigues(w_cur);
         T_cur.block(0, 3, 3, 1) = pos_cur;
         return LogMapSE3Tose3(T_cur);
@@ -158,7 +182,7 @@ inline function<twistd(double)> GetScrewLineFunction(const SE3d& T_ini, const SE
     return LineFunction;
 }
 
-inline function<twistd(double)> GetScrewLineFunction(const twistd & t_ini, const twistd & t_end)
+inline function<Twistd(double)> GetScrewLineFunction(const Twistd & t_ini, const Twistd & t_end)
 {
     return GetScrewLineFunction(ExpMapping(t_ini), ExpMapping(t_end));
 }
@@ -171,13 +195,13 @@ inline function<twistd(double)> GetScrewLineFunction(const twistd & t_ini, const
 /// <param name="p_end"></param>
 /// <param name="p_mid"></param>
 /// <returns></returns>
-inline function<vec3d(double)> GetCircleFunction(const vec3d& p_ini, const vec3d& p_end, const vec3d& p_mid)
+inline function<Vec3d(double)> GetCircleFunction(const Vec3d& p_ini, const Vec3d& p_end, const Vec3d& p_mid)
 {
-	vec3d rotateAxis = ((p_mid - p_ini).cross(p_end - p_ini)).normalized(),
+	Vec3d rotateAxis = ((p_mid - p_ini).cross(p_end - p_ini)).normalized(),
 		  coC = GetCenterOfCircle(p_ini, p_mid, p_end);
 	double radius = (p_ini - coC).norm();
 
-	vec3d vec_ini = (p_ini - coC).normalized(),
+	Vec3d vec_ini = (p_ini - coC).normalized(),
 		  vec_end = (p_end - coC).normalized();
 
 	double theta_delta =
@@ -190,25 +214,25 @@ inline function<vec3d(double)> GetCircleFunction(const vec3d& p_ini, const vec3d
 		rotateAxis = rotateAxis,
 		coCircle = coC,
 		radius = radius,
-		vec_ini = vec_ini](double t)->vec3d {
+		vec_ini = vec_ini](double t)->Vec3d {
 		return coCircle + radius * (Roderigues(rotateAxis, t * total) * vec_ini);
 	};
 	return CircleFun;
 }
 
 inline
-function<twistd(double)>
-GetCircleFunction(const twistd& t_ini, const twistd& t_end, const vec3d& p_mid)
+function<Twistd(double)>
+GetCircleFunction(const Twistd& t_ini, const Twistd& t_end, const Vec3d& p_mid)
 {
     SE3d T_ini = ExpMapping(t_ini),
          T_end = ExpMapping(t_end);
-    const vec3d& p_ini = T_ini.block(0, 3, 3, 1),
+    const Vec3d& p_ini = T_ini.block(0, 3, 3, 1),
                  p_end = T_end.block(0, 3, 3, 1);
-	const vec3d& w_ini = t_ini.block(0, 0, 3, 1),
+	const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
 	             w_end = t_end.block(0, 0, 3, 1);
 	auto CirclePosFunc = GetCircleFunction(p_ini, p_end, p_mid);
 	auto CircleFun = [PosFunc = CirclePosFunc,
-		              w_ini = w_ini, w_end = w_end](double t)->twistd {
+		              w_ini = w_ini, w_end = w_end](double t)->Twistd {
         SE3d T_cur = SE3d::Identity();
         T_cur.block(0, 3, 3, 1) = PosFunc(t);
         T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
@@ -218,8 +242,8 @@ GetCircleFunction(const twistd& t_ini, const twistd& t_end, const vec3d& p_mid)
 }
 
 inline
-function<vec3d(double)>
-GetCubicSplineFunction(const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
+function<Vec3d(double)>
+GetCubicSplineFunction(const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 {
 	int n = pList.size();
 	DynMatrixd A_pad, b;
@@ -253,12 +277,12 @@ GetCubicSplineFunction(const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
 		b(n - 3, 0) -= Mn * h_last;
 
 		/* resize to The Normal Size */
-		const DynMatrixd & A = A_pad.block(0, 0, n - 2, n - 2);
-		Ms.block(1, i, n - 2, 1) = solver(A, b);
+		const DynMatrixd & GetThis = A_pad.block(0, 0, n - 2, n - 2);
+		Ms.block(1, i, n - 2, 1) = solver(GetThis, b);
 	}
 	
-	Ms.block(0, 0, 1, 3) = vec3Td(M0, M0, M0);
-	Ms.block(n - 1, 0, 1, 3) = vec3Td(Mn, Mn, Mn);
+	Ms.block(0, 0, 1, 3) = Vec3dT(M0, M0, M0);
+	Ms.block(n - 1, 0, 1, 3) = Vec3dT(Mn, Mn, Mn);
     //std::cout << "Ms:=\n" << Ms << std::endl << std::endl;
 
 	auto SiFun = []
@@ -274,10 +298,10 @@ GetCubicSplineFunction(const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
 	};
 
 	auto SlineFun = [x = t, y= pList, Ms = Ms, Fun = SiFun]
-	(double t)->vec3d{
+	(double t)->Vec3d{
 		static double step = 1. / (x.size() - 1);	
-		int idx = t > 1 ?x.size() - 2 : t / step;
-		vec3d point;
+		int idx = t >= 1 ?x.size() - 2 : t / step;
+		Vec3d point;
 		const double hi = x[idx + 1] - x[idx],
 					 delta_next = x[idx + 1] - t,
 					delta_cur  = t - x[idx];
@@ -295,26 +319,26 @@ GetCubicSplineFunction(const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
 	return SlineFun;
 }
 
-inline function<vec3d(double)>
-GetCubicSplineFunction(const vec3d& p_ini, const vec3d& p_end, const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
+inline function<Vec3d(double)>
+GetCubicSplineFunction(const Vec3d& p_ini, const Vec3d& p_end, const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 {
-	vector<vec3d> temp{p_ini, p_end};
+	vector<Vec3d> temp{p_ini, p_end};
 	temp.insert(temp.end() - 1, pList.begin(), pList.end());
 	return GetCubicSplineFunction(temp, M0, Mn);
 }
 
-inline function<twistd(double)>
-GetCubicSplineFunction(const twistd& t_ini, const twistd& t_end, const vector<vec3d>& pList, double M0 = 0, double Mn = 0)
+inline function<Twistd(double)>
+GetCubicSplineFunction(const Twistd& t_ini, const Twistd& t_end, const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 {
     SE3d T_ini = ExpMapping(t_ini),
          T_end = ExpMapping(t_end);
-    const vec3d& p_ini = T_ini.block(0, 3, 3, 1),
+    const Vec3d& p_ini = T_ini.block(0, 3, 3, 1),
                  p_end = T_end.block(0, 3, 3, 1);
-    const vec3d& w_ini = t_ini.block(0, 0, 3, 1),
+    const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
                  w_end = t_end.block(0, 0, 3, 1);
 	auto PosFunc = GetCubicSplineFunction(p_ini, p_end, pList, M0, Mn);
 	auto SplineFunc = [PosFunc= PosFunc, 
-					   w_ini = w_ini, w_end = w_end](double t)->twistd {
+					   w_ini = w_ini, w_end = w_end](double t)->Twistd {
         SE3d T_cur = SE3d::Identity();
         T_cur.block(0, 3, 3, 1) = PosFunc(t);
         T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
@@ -341,44 +365,44 @@ DeCasteljau(const vector<_AnyVec>& pRest, double t)
 }
 
 
-inline function<vec3d(double)>
-GetBezierSplineFunction(const vector<vec3d> & pList)
+inline function<Vec3d(double)>
+GetBezierSplineFunction(const vector<Vec3d> & pList)
 {
-	return [pRest = pList](double t)->vec3d {
+	return [pRest = pList](double t)->Vec3d {
 		return DeCasteljau(pRest, t);
 	};
 }
 
-inline function<vec3d(double)>
-GetBezierInterSplineFunction(const vector<vec3d>& pList, double insertLength = 0.18)
+inline function<Vec3d(double)>
+GetBezierInterSplineFunction(const vector<Vec3d>& pList, double insertLength = 0.18)
 {
 	const int n = pList.size();
-	vector<vec3d> contrlPoints(3 * n - 2);
+	vector<Vec3d> contrlPoints(3 * n - 2);
 
 	std::for_each(contrlPoints.begin(), contrlPoints.begin() + 2, [val = pList.front()](auto & num) {num = val; });
 	std::for_each(contrlPoints.end() - 2, contrlPoints.end(), [val = pList.back()](auto & num) {num = val; });
 	for (int i = 1; i < n - 1; ++i)
 	{
-		vec3d delta = pList[i + 1] - pList[i - 1];
+		Vec3d delta = pList[i + 1] - pList[i - 1];
 		contrlPoints[3 * i] = pList[i];
 		contrlPoints[3 * i - 1] = pList[i] - insertLength * delta;
 		contrlPoints[3 * i + 1] = pList[i] + insertLength * delta;
 	}
 
-	vector<function<vec3d(double)>> SplineFuncs(n - 1);
+	vector<function<Vec3d(double)>> SplineFuncs(n - 1);
 	{
 		auto itf = SplineFuncs.begin();
 		auto itP = contrlPoints.begin();
 		for (; itf != SplineFuncs.end(); ++itf, itP += 3)
 		{
 			*itf = GetBezierSplineFunction(
-				vector<vec3d>(itP, itP + 4)
+				vector<Vec3d>(itP, itP + 4)
 			);
 		}
 	}
     
 	auto BezierSplineFunc = [SplineFuncs = SplineFuncs]
-	(double t)->vec3d {
+	(double t)->Vec3d {
 		static double step = 1. / SplineFuncs.size();
 
 		int idx = t > 1 ? SplineFuncs.size() - 1 : t / step;
@@ -390,25 +414,25 @@ GetBezierInterSplineFunction(const vector<vec3d>& pList, double insertLength = 0
 	return BezierSplineFunc;
 }
 
-inline function<vec3d(double)>
-GetBezierInterSplineFunction(const vec3d& p_ini, const vec3d& p_end, const vector<vec3d>& pList, double insertLength = 0.18)
+inline function<Vec3d(double)>
+GetBezierInterSplineFunction(const Vec3d& p_ini, const Vec3d& p_end, const vector<Vec3d>& pList, double insertLength = 0.18)
 {
-	vector<vec3d> temp{ p_ini, p_end };
+	vector<Vec3d> temp{ p_ini, p_end };
 	temp.insert(temp.begin() + 1, pList.begin(), pList.end());
 	return GetBezierInterSplineFunction(temp, insertLength);
 }
 
-inline function<twistd(double)>
-GetBezierInterSplineFunction(const twistd& t_ini, const twistd& t_end, const vector<vec3d>& pList, double insertLength = 0.18)
+inline function<Twistd(double)>
+GetBezierInterSplineFunction(const Twistd& t_ini, const Twistd& t_end, const vector<Vec3d>& pList, double insertLength = 0.18)
 {
-	const vec3d& p_ini = t_ini.block(3, 0, 3, 1),
+	const Vec3d& p_ini = t_ini.block(3, 0, 3, 1),
 				 p_end = t_end.block(3, 0, 3, 1);
-	const vec3d& w_ini = t_ini.block(0, 0, 3, 1),
+	const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
 				 w_end = t_end.block(0, 0, 3, 1);
 	auto PosFunc = GetBezierInterSplineFunction(p_ini, p_end, pList, insertLength);
 	auto SplineFunc = [PosFunc = PosFunc,
-		w_ini = w_ini, w_end = w_end](double t)->twistd {
-		twistd twist;
+		w_ini = w_ini, w_end = w_end](double t)->Twistd {
+		Twistd twist;
 		twist.block(0, 0, 3, 1) = Lerp(w_ini, w_end, t);
 		twist.block(3, 0, 3, 1) = PosFunc(t);
 		return twist;
@@ -431,7 +455,7 @@ private:
 
 	int curOrder = 0;
 	vector<vector<function<double(double)>>> _BaseFunc;
-	vector<double> _uList;
+	vector<double>  _uList;
 	vector<_AnyVec> _PList;
 
 };
@@ -551,18 +575,18 @@ BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 	const int DIM = pList_int.front().rows();
 	const int M = BaseFuncs.size();
 	auto InterList = Linspace(0, 1, pList_int.size());
-	DynMatrixd A;
-	A = DynMatrixd::Zero(N - 2, M - 2);
+	DynMatrixd GetThis;
+	GetThis = DynMatrixd::Zero(N - 2, M - 2);
 	DynMatrixd Residual, catBorder;
 	Residual = DynMatrixd::Zero(N - 2, 2);
 	catBorder = DynMatrixd::Zero(2, 1);
 
-	for (int i = 0; i < A.rows(); ++i)
+	for (int i = 0; i < GetThis.rows(); ++i)
 	{
 		double t_temp = InterList[i + 1];
-		for (int j = 0; j < A.cols(); ++j)
+		for (int j = 0; j < GetThis.cols(); ++j)
 		{
-			A(i, j) = BaseFuncs[j + 1](t_temp);
+			GetThis(i, j) = BaseFuncs[j + 1](t_temp);
 		}
 		Residual(i, 0) = BaseFuncs.front()(t_temp);
 		Residual(i, 1) = BaseFuncs.back()(t_temp);
@@ -579,7 +603,7 @@ BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 		std::transform(pList_int.begin() + 1, pList_int.end() - 1, b.data(), [dim](auto& a) {return a(dim, 0); });
 		b -= Residual * catBorder;
 
-		auto x = solve(A, b);
+		auto x = solve(GetThis, b);
 		for (int i = 0; i < x.rows(); ++i)
 		{
 			controlPoints[i](dim, 0) = x(i, 0);
@@ -590,20 +614,20 @@ BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 	_PList = controlPoints;
 }
 
-inline function<twistd(double t)>
-GetDecompositionFunction(const twistd & t_ini, const twistd & t_end)
+inline function<Twistd(double t)>
+GetDecompositionFunction(const Twistd & t_ini, const Twistd & t_end)
 {
     const SE3d  T_ini = ExpMapping(t_ini),
                 T_end = ExpMapping(t_end);
-    const vec3d & w_ini = t_ini.block(0, 0, 3, 1),
+    const Vec3d & w_ini = t_ini.block(0, 0, 3, 1),
                 & v_ini = T_ini.block(0, 3, 3, 1),
                 & w_end = t_end.block(0, 0, 3, 1),
                 & v_end = T_end.block(0, 3, 3, 1);
 	Matrix3d R_ini = Roderigues(w_ini), R_end = Roderigues(w_end);
 	auto LineFun = [R_ini = R_ini, v_ini = v_ini,
 			        R_end = R_end, v_end = v_end]
-	(double t)->twistd {
-		twistd twist;
+	(double t)->Twistd {
+		Twistd twist;
         twist.block(0, 0, 3, 1) = LogMapSO3Toso3((R_ini * Roderigues(
 														 (LogMapSO3Toso3(
 														 (R_ini.transpose() * R_end).eval()) * t).eval())).eval());
@@ -612,6 +636,5 @@ GetDecompositionFunction(const twistd & t_ini, const twistd & t_end)
 	};
 	return LineFun;
 }
-
 
 }

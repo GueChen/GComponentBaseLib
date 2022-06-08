@@ -51,12 +51,12 @@ namespace GComponent{
 class GMeshObject
 {
 public:
-	unsigned ID;
+	unsigned model_id_;
 	unsigned VBO;
 
 	GMeshObject() = default;
 
-	virtual ~GMeshObject() = 0 { glDeleteBuffers(1, &VBO); glDeleteVertexArrays(1, &ID); };
+	virtual ~GMeshObject() = 0 { glDeleteBuffers(1, &VBO); glDeleteVertexArrays(1, &model_id_); };
 
 	virtual void Draw(MyShader& shader) const noexcept= 0 {};
 

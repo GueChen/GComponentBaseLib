@@ -6,26 +6,34 @@
 
 #include "PenroseInverse.hpp"
 using Eigen::Matrix;
+using Eigen::Vector;
 
 template<class _Scaler>
-class DynamicLeastNormSolver {
+class LinearSystemSolver {
+	using _DynMat = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+public:
+	virtual _DynMat operator()(const _DynMat& A, const _DynMat& b) const = 0;
+};
+
+template<class _Scaler>
+class DynamicLeastNormSolver : public LinearSystemSolver<_Scaler>{
 	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
 	using SVD   = Eigen::JacobiSVD<_Tdyn>;
 public:
-	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b) {
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override{
 		SVD svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		return svd.solve(b);
 	}
 };
 
 template<class _Scaler>
-class DynamicWeightedLeastNormSolver {
+class DynamicWeightedLeastNormSolver: public LinearSystemSolver<_Scaler> {
 	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
-	using SVD = Eigen::JacobiSVD<_Tdyn>;
+	using SVD	= Eigen::JacobiSVD<_Tdyn>;
 public:
     DynamicWeightedLeastNormSolver(const _Tdyn& weight_mat) : _weight_mat_inverse(weight_mat.inverse()) {}
 
-	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) {
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override {
 		SVD svd(A * _weight_mat_inverse, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		return _weight_mat_inverse * svd.solve(b);
 	}
@@ -39,14 +47,14 @@ class StaticInverseSolver {
 	using _Tb = Matrix<double, Cow, 1>;
 	using _Tx = Matrix<double, Row, 1>;
 public:
-	inline _Tx operator()(const _TA& A, const _Tb& b)
+	inline _Tx operator()(const _TA& GetThis, const _Tb& b)
 	{
-		if(A.rows() == A.cols())
-			return A.inverse() * b;
-		if (A.rows() > A.cols())
+		if(GetThis.rows() == GetThis.cols())
+			return GetThis.inverse() * b;
+		if (GetThis.rows() > GetThis.cols())
 			assert("The Matrix Rows can't more then Cols, Equation has No Solution.");
 		PenroseInverseSolver pinv;
-		return pinv(A) * b;
+		return pinv(GetThis) * b;
 	}
 };
 
@@ -54,14 +62,14 @@ class DynamicInverseSolver {
 	using _Tdyn = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 	using _Self = DynamicInverseSolver;
 public:
-	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b) 
+	inline _Tdyn operator()(const _Tdyn& GetThis, const _Tdyn& b) 
 	{
-		if(A.rows() == A.cols())
-			return A.inverse() * b;
-		if (A.rows() > A.cols())
+		if(GetThis.rows() == GetThis.cols())
+			return GetThis.inverse() * b;
+		if (GetThis.rows() > GetThis.cols())
 			assert("The Matrix Rows can't more then Cols, Equation has No Solution.");
 		PenroseInverseSolver pinv;
-		return pinv(A) * b;
+		return pinv(GetThis) * b;
 	}
 
 	DynamicInverseSolver(_Self& other) = delete;
@@ -73,19 +81,19 @@ public:
 class JacobiSolver {
 	using _Tdyn = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 public:
-	inline _Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8) 
+	inline _Tdyn operator()(const _Tdyn& GetThis, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8) 
 	{
-		_Tdyn LU = A, D = Eigen::MatrixXd::Zero(A.cols(), A.rows());
-		for (int i = 0; i < A.rows(); ++i)
+		_Tdyn LU = GetThis, D = Eigen::MatrixXd::Zero(GetThis.cols(), GetThis.rows());
+		for (int i = 0; i < GetThis.rows(); ++i)
 		{
 			std::swap(D(i, i),LU(i, i));
 			D(i, i) = 1.0 / D(i, i);
 		}
-		_Tdyn _x = Eigen::MatrixXd::Zero(A.cols(), 1);
+		_Tdyn _x = Eigen::MatrixXd::Zero(GetThis.cols(), 1);
 		for (int iter = 0; iter < _MaxIteration; ++iter)
 		{
 			_x = D * (b - LU * _x);
-			double residual = (A * _x - b).lpNorm<2>();
+			double residual = (GetThis * _x - b).lpNorm<2>();
 			if (residual < _MaxResidual)
 			{
 				//std::cout << "Jacobi iterations:" << iter << std::endl;
@@ -99,9 +107,9 @@ public:
 class GaussSeidelSolver {
 	using _Tdyn = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 public:
-	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
+	_Tdyn operator()(const _Tdyn& GetThis, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
 	{
-		const unsigned ROW = A.rows(), COL = A.cols();
+		const unsigned ROW = GetThis.rows(), COL = GetThis.cols();
 		_Tdyn LD = Eigen::MatrixXd::Zero(ROW, COL), U = LD;
         for (unsigned i = 0; i < ROW; ++i)
 		{
@@ -109,21 +117,21 @@ public:
 			{
 				if (j > i)
 				{
-					U(i, j) = A(i, j);
+					U(i, j) = GetThis(i, j);
 				}
 				else
 				{
-					LD(i, j) = A(i, j);
+					LD(i, j) = GetThis(i, j);
 				}
 			}
 		}
 		PenroseInverseSolver pinv;
 		auto invLD = pinv(LD);
-		_Tdyn _x = Eigen::MatrixXd::Zero(A.cols(), 1);
+		_Tdyn _x = Eigen::MatrixXd::Zero(GetThis.cols(), 1);
 		for (int iter = 0; iter < _MaxIteration; ++iter)
 		{
 			_x = invLD * (b - U * _x);
-			double residual = (A * _x - b).lpNorm<2>();
+			double residual = (GetThis * _x - b).lpNorm<2>();
 			if (residual < _MaxResidual)
 			{
                 //std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
@@ -166,9 +174,9 @@ class SOR_Solver {
 public:
 	explicit SOR_Solver(double _o = 1.25) :_omega(_o) {}
 	
-	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
+	_Tdyn operator()(const _Tdyn& GetThis, const _Tdyn& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
 	{
-		const unsigned ROW = A.rows(), COL = A.cols();
+		const int ROW = GetThis.rows(), COL = GetThis.cols();
 		_Tdyn LD = Eigen::MatrixXd::Zero(ROW, COL), U = LD;
 		for (int i = 0; i < ROW; ++i)
 		{
@@ -176,21 +184,21 @@ public:
 			{
 				if (j > i)
 				{
-					U(i, j) = A(i, j);
+					U(i, j) = GetThis(i, j);
 				}
 				else
 				{
-					LD(i, j) = A(i, j);
+					LD(i, j) = GetThis(i, j);
 				}
 			}
 		}
 		PenroseInverseSolver pinv;
 		auto invLD = pinv(LD);
-		_Tdyn _x = Eigen::MatrixXd::Zero(A.cols(), 1);
+		_Tdyn _x = Eigen::MatrixXd::Zero(GetThis.cols(), 1);
 		for (int iter = 0; iter < _MaxIteration; ++iter)
 		{
 			_x = (1 - _omega) * _x + _omega * invLD * (b - U * _x);
-			double residual = (A * _x - b).lpNorm<2>();
+			double residual = (GetThis * _x - b).lpNorm<2>();
 			if (residual < _MaxResidual)
 			{
                 //std::cout << "Gauss-Seidel optimizal iterations:" << iter << std::endl;
@@ -207,12 +215,12 @@ class ConjugateGradientMethodSolver {
 	using _matType = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 	using _vecType = Matrix<double, Eigen::Dynamic, 1>;
 public:
-	_vecType operator()(const _matType& A, const _vecType& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
+	_vecType operator()(const _matType& GetThis, const _vecType& b, int _MaxIteration = 100, double _MaxResidual = 1e-8)
 	{
-		const unsigned ROW = A.rows(), COL = A.cols();
+		const int COL = GetThis.cols();
 	
 		_vecType _d, _r, _x = _vecType::Zero(COL, 1);
-		_d = _r = b - A * _x;
+		_d = _r = b - GetThis * _x;
 
 		for (int iter = 0; iter < _MaxIteration; ++iter)
 		{
@@ -221,7 +229,7 @@ public:
 
 				break;
 			}
-			auto tmp = A * _d;
+			auto tmp = GetThis * _d;
 			auto _rIner = _r.squaredNorm();
 			auto alpha = _rIner / _d.dot(tmp);
 			_x += alpha * _d;

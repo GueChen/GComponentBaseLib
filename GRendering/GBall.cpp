@@ -5,7 +5,7 @@ GBall::GBall(vec3 o, float r):
 	center(o), radius(r)
 {
 	setupMesh(36, 72);
-	std::tie(ID, VBO) = GMeshObject::genVABO(&mesh.vertices[0], sizeof(Vertex) * mesh.vertices.size());
+	std::tie(model_id_, VBO) = GMeshObject::genVABO(&mesh.vertices[0], sizeof(Vertex) * mesh.vertices.size());
 	GMeshObject::EnableVertexAttrbArrays(3, 3, 2);
 	EBO = GMeshObject::genEBO(mesh.indicies);
 	TextureID = GMeshObject::loadFromFile("Resources/world.jpg");
@@ -62,7 +62,7 @@ void GBall::Draw(MyShader& shader) const noexcept
 	shader.setMat4("model", translate(identity<mat4>(), center));
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureID);
-	glBindVertexArray(ID);
+	glBindVertexArray(model_id_);
 	glDrawElements(GL_TRIANGLES, 3* mesh.indicies.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }
