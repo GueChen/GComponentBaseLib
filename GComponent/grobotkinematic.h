@@ -1,4 +1,4 @@
-/**
+ï»¿/**
  *  @file  	gkinematic.h
  *  @brief 	This file contains Robot Kinematic Caculation Methods.
  *  @author Gue Chen<guechen@buaa.edu.cn>
@@ -20,7 +20,7 @@
 #include <vector>
 
 namespace GComponent {
-///	  Type Alias ÀàĞÍ±ğÃû
+///	  Type Alias ç±»å‹åˆ«å
 using std::vector;
 using SE3d  = Eigen::Matrix4d;
 using SE3f  = Eigen::Matrix4f;
@@ -49,104 +49,115 @@ enum class SolveResult {
 /// <summary>
 /// Get the ajoint transform matrices under exponential coordinates with specific thetas
 /// <para>
-/// Ê¹ÓÃÖ¸¶¨½Ç¶ÈÖµ»ñÈ¡ÌØ¶¨ĞıÁ¿ÖáÏÂµÄÏàÁÚ±ä»»¾ØÕó
+/// ä½¿ç”¨æŒ‡å®šè§’åº¦å€¼è·å–ç‰¹å®šæ—‹é‡è½´ä¸‹çš„ç›¸é‚»å˜æ¢çŸ©é˜µ
 /// </para>
 /// </summary>
-/// <param name="out_transforms">	ref		{DynMats}	[out]	result							¼ÆËã½á¹û£¬ÁÚ½Ó±ä»»¾ØÕó	</param>
-/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			Ö¸Êı×ø±ê				</param>
-/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				Ö¸¶¨½Ç¶ÈÖµÏòÁ¿			</param>
-/// <returns>								{bool}		[out]	flag of solving result			Çó½â½á¹û±êÖ¾			</returns>
-bool	  Transforms(vector<SE3<float>>&				out_transforms,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
+/// <param name="out_transforms">	ref		{DynMats}	[out]	result							è®¡ç®—ç»“æœï¼Œé‚»æ¥å˜æ¢çŸ©é˜µ	</param>
+/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			æŒ‡æ•°åæ ‡				</param>
+/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				æŒ‡å®šè§’åº¦å€¼å‘é‡			</param>
+/// <returns>								{bool}		[out]	flag of solving result			æ±‚è§£ç»“æœæ ‡å¿—			</returns>
+template<class _Scaler>
+bool	  Transforms(vector<SE3<_Scaler>>&				out_transforms,
+						   const vector<Twist<_Scaler>>&	expcoords,
+						   const DynVec<_Scaler>&			thetas);
 
 /// <summary>
 /// Solving the end effect Transform using Exponential Product under exponential coordinates with specific thetas
 /// <para>
-/// Ê¹ÓÃÖ¸Êı»ı¹«Ê½Çó½âÖ¸¶¨½Ç¶ÈÖµÏÂÌØ¶¨Ä©¶ËµãµÄÆë´Î±ä»»¾ØÕó
+/// ä½¿ç”¨æŒ‡æ•°ç§¯å…¬å¼æ±‚è§£æŒ‡å®šè§’åº¦å€¼ä¸‹ç‰¹å®šæœ«ç«¯ç‚¹çš„é½æ¬¡å˜æ¢çŸ©é˜µ
 /// </para>
 /// </summary>
-/// <param name="out_mat">			ref		{SE3}		[out]	result							¼ÆËã½á¹û£¬Ä©¶ËÎ»×Ë¾ØÕó	</param>
-/// <param name="zero_mat">			cref	{SE3}		[in]	zero-point end transform matrix ÁãµãÄ©¶ËÎ»×Ë¾ØÕó		</param>
-/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			Ö¸Êı×ø±ê				</param>
-/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				Ö¸¶¨½Ç¶ÈÖµÏòÁ¿			</param>
-/// <returns>								{bool}		[out]	flag of solving result			Çó½â½á¹û±êÖ¾			</returns>
-bool	  ForwardKinematic(SE3<float>&					out_mat, 
-						   const SE3<float>&			zero_mat,
-						   const vector<Twist<float>>&	expcoords, 
-						   const DynVec<float>&			thetas);
-bool	  ForwardKinematic(SE3<float>&					out_mat,
-						   const SE3<float>&			ini_mat,
-						   const vector<SE3<float>>&	adj_matrices);
+/// <param name="out_mat">			ref		{SE3}		[out]	result							è®¡ç®—ç»“æœï¼Œæœ«ç«¯ä½å§¿çŸ©é˜µ	</param>
+/// <param name="zero_mat">			cref	{SE3}		[in]	zero-point end transform matrix é›¶ç‚¹æœ«ç«¯ä½å§¿çŸ©é˜µ		</param>
+/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			æŒ‡æ•°åæ ‡				</param>
+/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				æŒ‡å®šè§’åº¦å€¼å‘é‡			</param>
+/// <returns>								{bool}		[out]	flag of solving result			æ±‚è§£ç»“æœæ ‡å¿—			</returns>
+template<class _Scaler>
+bool	  ForwardKinematic(SE3<_Scaler>&					out_mat, 
+						   const SE3<_Scaler>&				zero_mat,
+						   const vector<Twist<_Scaler>>&	expcoords, 
+						   const DynVec<_Scaler>&			thetas);
+template<class _Scaler>
+bool	  ForwardKinematic(SE3<_Scaler>&					out_mat,
+						   const SE3<_Scaler>&				ini_mat,
+						   const vector<SE3<_Scaler>>&		adj_matrices);
 
 /// <summary>
 /// Get Analytic Jacobian with Specific thetas under exponential coordinates
 /// <para>
-/// Ê¹ÓÃÖ¸¶¨½Ç¶È¼ÆËã½âÎöÑÅ¿É±È
+/// ä½¿ç”¨æŒ‡å®šè§’åº¦è®¡ç®—è§£æé›…å¯æ¯”
 /// </para>
 /// </summary>
-/// <param name="out_jacobian">		ref		{DynMat}	[out]	result							¼ÆËã½á¹û£¬ÑÅ¿É±È¾ØÕó	</param>
-/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			Ö¸Êı×ø±ê				</param>
-/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				Ö¸¶¨½Ç¶ÈÖµÏòÁ¿			</param>
-/// <returns>								{bool}		[out]	flag of solving result			Çó½â½á¹û±êÖ¾			</returns>
-bool	  Jacobian(DynMat<float>&						out_jacobian,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
-bool	  Jacobian(DynMat<float>&						out_jacobian,
-						   const vector<Twist<float>>&	expcoords,
-						   const vector<SE3<float>>&    adj_matrices);
+/// <param name="out_jacobian">		ref		{DynMat}	[out]	result							è®¡ç®—ç»“æœï¼Œé›…å¯æ¯”çŸ©é˜µ	</param>
+/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			æŒ‡æ•°åæ ‡				</param>
+/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				æŒ‡å®šè§’åº¦å€¼å‘é‡			</param>
+/// <returns>								{bool}		[out]	flag of solving result			æ±‚è§£ç»“æœæ ‡å¿—			</returns>
+template<class _Scaler>
+bool	  Jacobian(DynMat<_Scaler>&							out_jacobian,
+							const vector<Twist<_Scaler>>&	expcoords,
+							const DynVec<_Scaler>&			thetas);
+template<class _Scaler>
+bool	  Jacobian(DynMat<_Scaler>&							out_jacobian,
+							const vector<Twist<_Scaler>>&	expcoords,
+							const vector<SE3<_Scaler>>&		adj_matrices);
 
 /// <summary>
 /// Get Null Space Projection Matrix with Specific thetas under exponential coordinates
 /// <para>
-/// ¼ÆËãÖ¸¶¨½Ç¶ÈÏÂµÄÁã¿Õ¼äÍ¶Ó°¾ØÕó
+/// è®¡ç®—æŒ‡å®šè§’åº¦ä¸‹çš„é›¶ç©ºé—´æŠ•å½±çŸ©é˜µ
 /// </para>
 /// </summary>
-/// <param name="out_matrix">		ref		{DynMat}	[out]	result							¼ÆËã½á¹û£¬Áã¿Õ¼äÍ¶Ó°¾ØÕó</param>
-/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			Ö¸Êı×ø±ê				</param>
-/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				Ö¸¶¨½Ç¶ÈÖµÏòÁ¿			</param>
-/// <returns>								{bool}		[out]	flag of solving result			Çó½â½á¹û±êÖ¾			</returns>
-bool	  NullSpaceProjection(DynMat<float>&			out_projection_matrix,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
+/// <param name="out_matrix">		ref		{DynMat}	[out]	result							è®¡ç®—ç»“æœï¼Œé›¶ç©ºé—´æŠ•å½±çŸ©é˜µ</param>
+/// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			æŒ‡æ•°åæ ‡				</param>
+/// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				æŒ‡å®šè§’åº¦å€¼å‘é‡			</param>
+/// <returns>								{bool}		[out]	flag of solving result			æ±‚è§£ç»“æœæ ‡å¿—			</returns>
+template<class _Scaler>
+bool	  NullSpaceProjection(DynMat<_Scaler>&				out_projection_matrix,
+						const vector<Twist<_Scaler>>&		expcoords,
+						const DynVec<_Scaler>&				thetas);
 
 /// <summary>
 /// Solving Inverse Kinematic Problem using numerical method called Least-Squared Method.
 /// <para>
-/// Ê¹ÓÃ×îĞ¡¶ş³Ë·½·¨Çó½âÄæÔË¶¯Ñ§ÊıÖµ½â
+/// ä½¿ç”¨æœ€å°äºŒä¹˜æ–¹æ³•æ±‚è§£é€†è¿åŠ¨å­¦æ•°å€¼è§£
 /// </para>
 /// </summary>
-/// <param name="out_thetas">	ref		{DynVec}		[out]	result							¼ÆËã½á¹û		</param>
-/// <param name="zero_mat">		cref	{SE3}			[in]	zero-point end transform matrix ÁãµãÄ©¶ËÎ»×Ë¾ØÕó</param>
-/// <param name="expcoords">	cref    {Twists}		[in]	exponential coordinates			Ö¸Êı×ø±ê		</param>
-/// <param name="goal_mat">		cref	{SE3}			[in]	goal transform matrix			Ä¿±êÄ©¶ËÎ»×Ë¾ØÕó</param>
-/// <param name="init_guess">	cref	{DynVec}		[in]	initial guess of result theta   ³õÖµµã²Â²âÖµ	</param>
-/// <param name="solver">		cref	{IKSolver}		[in]	linear system solver			ÏßĞÔÏµÍ³Çó½âÆ÷	</param>
-/// <param name="Precision">	const	{Scaler}		[in]	precision						Çó½â¾«¶È		</param>
-/// <param name="MaxIteration"> const	{int}			[in]	max iteration limit				×î´óµü´ú´ÎÊı	</param>
-/// <param name="Scaler">		const	{Scaler}		[in]	decay scaler					²½³¤Ë¥¼õÖµ		</param>
-/// <returns>							{bool}			[out]	flag of solving result			Çó½â½á¹û±êÖ¾	</returns>
-bool	  InverseKinematic(DynVec<float>&				out_thetas,
-						   const SE3<float>&			zero_mat,
-						   const vector<Twist<float>>&	expcoords,
-						   const SE3<float>&			goal_mat, 
-						   const DynVec<float>&			init_guess,
-						   const IKSolver<float>&		solver, 
-						   const float					Precision	 = 1e-5f, 
+/// <param name="out_thetas">	ref		{DynVec}		[out]	result							è®¡ç®—ç»“æœ		</param>
+/// <param name="zero_mat">		cref	{SE3}			[in]	zero-point end transform matrix é›¶ç‚¹æœ«ç«¯ä½å§¿çŸ©é˜µ</param>
+/// <param name="expcoords">	cref    {Twists}		[in]	exponential coordinates			æŒ‡æ•°åæ ‡		</param>
+/// <param name="goal_mat">		cref	{SE3}			[in]	goal transform matrix			ç›®æ ‡æœ«ç«¯ä½å§¿çŸ©é˜µ</param>
+/// <param name="init_guess">	cref	{DynVec}		[in]	initial guess of result theta   åˆå€¼ç‚¹çŒœæµ‹å€¼	</param>
+/// <param name="solver">		cref	{IKSolver}		[in]	linear system solver			çº¿æ€§ç³»ç»Ÿæ±‚è§£å™¨	</param>
+/// <param name="Precision">	const	{Scaler}		[in]	precision						æ±‚è§£ç²¾åº¦		</param>
+/// <param name="MaxIteration"> const	{int}			[in]	max iteration limit				æœ€å¤§è¿­ä»£æ¬¡æ•°	</param>
+/// <param name="Scaler">		const	{Scaler}		[in]	decay scaler					æ­¥é•¿è¡°å‡å€¼		</param>
+/// <returns>							{bool}			[out]	flag of solving result			æ±‚è§£ç»“æœæ ‡å¿—	</returns>
+template<class _Scaler>
+bool	  InverseKinematic(DynVec<_Scaler>&				out_thetas,
+						   const SE3<_Scaler>&			zero_mat,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const SE3<_Scaler>&			goal_mat, 
+						   const DynVec<_Scaler>&		init_guess,
+						   const IKSolver<_Scaler>&		solver, 
+						   const double					Precision	 = 1e-5f, 
 						   const int					MaxIteration = 50,
-						   const float					Scaler		 = 0.3f);
+						   const double					Scaler		 = 0.3f);
 
-bool	  JacobianWithSE3(DynMat<float>&				out_jacobian,
-						   SE3<float> &					out_matrix,
-						   const vector<Twist<float>>&	expcoords,
-						   const vector<SE3<float>>&    adj_matrices);
+template<class _Scaler>
+bool	  JacobianWithSE3(DynMat<_Scaler>&				out_jacobian,
+						   SE3<_Scaler> &					out_matrix,
+						   const vector<Twist<_Scaler>>&	expcoords,
+						   const vector<SE3<_Scaler>>&    adj_matrices);
 
 SE3d StandardDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f StandardDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
 
 SE3d ModifiedDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f ModifiedDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
+
 }
 }
+
+#include <GComponent/grobotkinematic-inl.hpp>
 
 #endif
