@@ -39,6 +39,16 @@ namespace RobotKinematic{
 template<class _Scaler>
 using IKSolver = LinearSystemSolver<_Scaler>;
 
+template<class _Scaler>
+class NoIKSolver : public IKSolver<_Scaler> {
+	using _DynMat = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+public:
+	_DynMat operator()(const _DynMat& A, const _DynMat& b) override
+	{
+		return _DynMat::Zero(A.cols(), 1);
+	}
+};
+
 enum class SolveResult {
 	Sucess				= 0,
 	SizeNotMatch		= 1,
