@@ -65,7 +65,7 @@ template<class _Scaler>
 bool JacobianWithSE3(DynMat<_Scaler>& out_jacobian, SE3<_Scaler>& out_matrix, const vector<Twist<_Scaler>>& expcoords, const vector<SE3<_Scaler>>& adj_matrices)
 {
 	if (expcoords.size() != adj_matrices.size()) return false;
-	const int N = expcoords.size();
+	const size_t N = expcoords.size();
 	out_matrix.setIdentity();
 	out_jacobian.resize(6, N);
 	for (int i = 0; i < N; ++i) {
@@ -79,7 +79,7 @@ template<class _Scaler>
 bool NullSpaceProjection(DynMat<_Scaler>& out_projection_matrix, const vector<Twist<_Scaler>>& expcoords, const DynVec<_Scaler>& thetas)
 {
 	if (expcoords.size() != thetas.rows()) return false;
-	const int N = expcoords.size();
+	const size_t N = expcoords.size();
 	DynMat<_Scaler> J;
 	Jacobian(J, expcoords, thetas);
 	Eigen::JacobiSVD<DynMat<_Scaler>> svd(J, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -91,9 +91,7 @@ bool NullSpaceProjection(DynMat<_Scaler>& out_projection_matrix, const vector<Tw
 template<class _Scaler>
 bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat, const vector<Twist<_Scaler>>& expcoords, const SE3<_Scaler>& goal_mat, const DynVec<_Scaler>& init_guess, const IKSolver<_Scaler>& solver, const double Precision, const int MaxIteration, const double Scaler)
 {
-	if (init_guess.size() != expcoords.size()) return false;
-	const double		InvScaler = 1.0f / Scaler;
-
+	if (init_guess.size() != expcoords.size()) return false;	
 	SE3<_Scaler>		mat_cur,						// current SE3
 						mat_new;						// trial error SE3
 	vector<SE3<_Scaler>>adj_matrices;					// adjoint matrices
@@ -123,6 +121,10 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 	auto trial_error = [&]() {
 		thetas_new = thetas + decay * x;
 		
+	/*	for (auto& theta : thetas_new) {
+			theta = fmod(theta, MyPI);
+		}*/
+
 		Transforms(adj_matrices, expcoords, thetas_new);
 		ForwardKinematic(mat_new, zero_mat, adj_matrices);
 		b_new		 = LogMapSE3Tose3((goal_mat * InverseSE3(mat_new)).eval());
@@ -147,21 +149,21 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 
 		while(residual < tolerance + residual_new) {			
 			decay *= Scaler;
-			if (decay < Precision) {
+			if (abs(residual - residual_new) < Precision) {
 				precision_flag = true;
 				break;
 			}
 			trial_error();			
 		}
 
-		if (precision_flag) break;
+		if (precision_flag || abs(residual_new - residual) < 1e-8) break;
 		if (decay < 1.0f) {
-			decay = 1.0f;
+			decay /= Scaler ;
 		}
 
 		accept();
 		
-		tolerance = -residual / 20.0;
+		tolerance = -residual / 10.0;
 	
 		++iter_count;
 	}

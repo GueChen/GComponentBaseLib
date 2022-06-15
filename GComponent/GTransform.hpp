@@ -1,4 +1,5 @@
-ï»¿#pragma once
+#ifndef _GTRANSFORM_HPP
+#define _GTRANSFORM_HPP
 
 #include <eigen3/Eigen/Dense>
 #include <tuple>
@@ -304,7 +305,7 @@ AdMatrix<_Scaler> Adjoint(const SE3<_Scaler> & T)
 
 /// <summary>
 /// Decomposing a 3 x 3 matrix into two 3 x 3 matrices of orthogonal matrix Q and upper triangular matrix R
-/// <para>å°†ä¸€ä¸ªå¯é€† 3 x 3 å®çŸ©é˜µåˆ†è§£ä¸º Q R ä¸¤ä¸ªçŸ©é˜µï¼Œå…¶ä¸­ Q ä¸ºå•ä½æ­£äº¤é˜µï¼Œ R ä¸ºä¸Šä¸‰è§’çŸ©é˜µ </para>
+/// <para>½«Ò»¸ö¿ÉÄæ 3 x 3 Êµ¾ØÕó·Ö½âÎª Q R Á½¸ö¾ØÕó£¬ÆäÖĞ Q Îªµ¥Î»Õı½»Õó£¬ R ÎªÉÏÈı½Ç¾ØÕó </para>
 /// </summary>
 /// <typeparam name="_Scaler"></typeparam>
 /// <param name="r_mat"></param>
@@ -350,12 +351,12 @@ pair<SO3<_Scaler>, Matrix<_Scaler, 3, 3>> QRDecompositionMat3(const Matrix<_Scal
 
 /// <summary>
 /// Decoposing a 3 x 3 upper triangular Matrix into two 3 x 1 vectors of scale and shear 
-/// <para>åˆ†è§£ 3 x 3 ä¸Šä¸‰è§’å®çŸ©é˜µä¸º ç¼©æ”¾ å’Œ å‰ªåˆ‡ ä¸¤ä¸ª 3 x 1 å‘é‡ </para>
+/// <para>·Ö½â 3 x 3 ÉÏÈı½ÇÊµ¾ØÕóÎª Ëõ·Å ºÍ ¼ôÇĞ Á½¸ö 3 x 1 ÏòÁ¿ </para>
 /// </summary>
 /// <typeparam name="_Scaler">{float/double} precision</typeparam>
-/// <param name="ut_mat"> ã€€
-/// <para>ã€€ã€€{const ref Matrix3} </para>
-/// <para>ã€€ã€€upper triangular Matrix ä¸Šä¸‰è§’å®çŸ©é˜µ</para>
+/// <param name="ut_mat"> ¡¡
+/// <para>¡¡¡¡{const ref Matrix3} </para>
+/// <para>¡¡¡¡upper triangular Matrix ÉÏÈı½ÇÊµ¾ØÕó</para>
 /// </param>
 /// <returns></returns>
 template<class _Scaler>
@@ -378,7 +379,7 @@ tuple<SO3<_Scaler>, Vector<_Scaler, 3>, Vector<_Scaler, 3>> RSSDecompositionMat3
 	// Step2: Decompose R into scale and shear
 	auto [scale, shear] = SSDecompositionMat3(R);
 
-	//     Q âˆˆ SO(3)
+	//     Q ¡Ê SO(3)
 	return { Q, scale, shear};
 }
 
@@ -409,3 +410,5 @@ pair<Vector<_Scaler, 3>, Vector<_Scaler, 3>> rtDecompositionMat4(const Matrix<_S
 }
 
 }
+
+#endif

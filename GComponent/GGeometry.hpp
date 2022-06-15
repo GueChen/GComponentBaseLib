@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _GGEOMETRY_HPP
+#define _GGEOMETRY_HPP
 
 #include <eigen3/Eigen/Dense>
 #include <functional>
@@ -24,7 +25,7 @@ using Eigen::Matrix3d;
 using Eigen::Matrix4d;
 
 /// <summary>
-/// æ’å€¼å‡½æ•°ï¼Œç›®å‰ä»…æ”¯æŒåˆ—å‘é‡æ’å€¼ï¼Œå¾…å®Œå–„ä¸ºè¡Œåˆ—å‡æ”¯æŒ
+/// ²åÖµº¯Êı£¬Ä¿Ç°½öÖ§³ÖÁĞÏòÁ¿²åÖµ£¬´ıÍêÉÆÎªĞĞÁĞ¾ùÖ§³Ö
 /// </summary>
 /// <typeparam name="_AnyVec"></typeparam>
 /// <param name="v1"></param>
@@ -51,7 +52,7 @@ inline double Lerp(const double & d1, const double& d2, double t)
 }
 
 /// <summary>
-/// å°†çº¿æ®µç©ºé—´è¿›è¡Œ n ç­‰åˆ†å‡½æ•°
+/// ½«Ïß¶Î¿Õ¼ä½øĞĞ n µÈ·Öº¯Êı
 /// </summary>
 /// <param name="lowerBound"></param>
 /// <param name="upperBound"></param>
@@ -71,7 +72,7 @@ inline vector<double> Linspace(const double lowerBound, const double upperBound,
 }
 
 /// <summary>
-/// ç©ºé—´ä¸‰ç‚¹è·å–åœ†å¿ƒå‡½æ•°
+/// ¿Õ¼äÈıµã»ñÈ¡Ô²ĞÄº¯Êı
 /// </summary>
 /// <param name="p_1"></param>
 /// <param name="p_2"></param>
@@ -96,7 +97,7 @@ inline Vec3d GetCenterOfCircle(const Vec3d & p_1, const Vec3d & p_2, const Vec3d
 }
 
 /// <summary>
-/// è·å–ä» v1 åˆ° v2 çš„æ—‹è½¬å‘é‡è½´è§’è¡¨ç¤º
+/// »ñÈ¡´Ó v1 µ½ v2 µÄĞı×ªÏòÁ¿Öá½Ç±íÊ¾
 /// v1 -> v2
 /// v2 = [rot]^ * v1
 /// </summary>
@@ -116,9 +117,9 @@ Vector<_Scaler, 3> GetRotateAxisAngleFrom2Vec(const Vector<_Scaler, 3>& v1, cons
 }
 
 
-// FIXME: ä¸GetCircleFunctionå†—ä½™
+// FIXME: ÓëGetCircleFunctionÈßÓà
 /// <summary>
-/// ç©ºé—´ä¸‰ç‚¹è·å–åœ†å¼§å‡½æ•°
+/// ¿Õ¼äÈıµã»ñÈ¡Ô²»¡º¯Êı
 /// </summary>
 /// <param name="p_1"></param>
 /// <param name="p_2"></param>
@@ -130,9 +131,9 @@ inline double GetRadiusOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec3d
     return ( p_1 - coc).norm();
 }
 
-// FIXME: ä¸GetCircleFunctionå†—ä½™
+// FIXME: ÓëGetCircleFunctionÈßÓà
 /// <summary>
-/// ç©ºé—´ä¸‰ç‚¹è·å–åœ†å¼§å·®è§’å‡½æ•°
+/// ¿Õ¼äÈıµã»ñÈ¡Ô²»¡²î½Çº¯Êı
 /// </summary>
 /// <param name="p_1"></param>
 /// <param name="p_2"></param>
@@ -153,7 +154,7 @@ inline double GetArcDeltaOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec
 }
 
 /// <summary>
-/// èºæ—‹è½´ç›´çº¿æ’å€¼å‡½æ•°
+/// ÂİĞıÖáÖ±Ïß²åÖµº¯Êı
 /// </summary>
 /// <param name="t_ini"></param>
 /// <param name="t_end"></param>
@@ -189,7 +190,7 @@ inline function<Twistd(double)> GetScrewLineFunction(const Twistd & t_ini, const
 
 
 /// <summary>
-/// ä¸‰ç‚¹ç”»åœ†å¼§å‡½æ•°
+/// Èıµã»­Ô²»¡º¯Êı
 /// </summary>
 /// <param name="p_ini"></param>
 /// <param name="p_end"></param>
@@ -638,3 +639,5 @@ GetDecompositionFunction(const Twistd & t_ini, const Twistd & t_end)
 }
 
 }
+
+#endif // !_GGEOMETRY_HPP

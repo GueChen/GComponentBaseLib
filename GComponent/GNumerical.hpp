@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _GNUMERICAL_HPP
+#define _GNUMERICAL_HPP
 
 #include <array>
 #include <random>
@@ -69,3 +70,4 @@ inline double  DegreeToRadius(double val)
 
 };
 
+#endif // !_GNUMERICAL

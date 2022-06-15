@@ -31,7 +31,7 @@ class DynamicWeightedLeastNormSolver: public LinearSystemSolver<_Scaler> {
 	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
 	using SVD	= Eigen::JacobiSVD<_Tdyn>;
 public:
-    DynamicWeightedLeastNormSolver(const _Tdyn& weight_mat) : _weight_mat_inverse(weight_mat.inverse()) {}
+    explicit DynamicWeightedLeastNormSolver(const _Tdyn& weight_mat) : _weight_mat_inverse(weight_mat.inverse()) {}
 
 	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override {
 		SVD svd(A * _weight_mat_inverse, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -39,6 +39,73 @@ public:
 	}
 private:
 	_Tdyn _weight_mat_inverse;
+};
+
+template<class _Scaler>
+class DynamicDampedLeastSquareSolver : public LinearSystemSolver<_Scaler> {
+	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+	using SVD	= Eigen::JacobiSVD<_Tdyn>;
+	using _Self = DynamicDampedLeastSquareSolver;
+public:
+	template<class _OtherScaler> requires std::is_convertible_v<_OtherScaler, _Scaler>
+	explicit DynamicDampedLeastSquareSolver(_OtherScaler factor) :damped_factor_(std::max(factor, static_cast<_OtherScaler>(MIN_FACTOR))) {}
+	explicit DynamicDampedLeastSquareSolver(_Scaler		 factor) :damped_factor_(std::max(factor, MIN_FACTOR)) {}
+
+	template<class _OtherScaler> requires std::is_convertible_v<_OtherScaler, _Scaler>
+	inline void SetDampedFactor(_OtherScaler factor) { damped_factor_ = std::max(factor, static_cast<_OtherScaler>(MIN_FACTOR)); }
+	inline void SetDampedFactor(_Scaler		 factor) { damped_factor_ = std::max(factor, MIN_FACTOR); }
+
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override {		
+		return A.transpose() * (A * A.transpose() + damped_factor_ * _Tdyn::Identity(A.rows(), A.rows())).inverse() * b;
+	}
+
+private:
+	_Scaler damped_factor_ = 1e-5f;
+
+	static constexpr _Scaler MIN_FACTOR = 1e-10;
+};
+
+template<class _Scaler>
+class DynamicSelectivelyDampedLeastSquareSolver : public LinearSystemSolver<_Scaler> {
+	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+	using _Self = DynamicSelectivelyDampedLeastSquareSolver;
+public:
+	explicit DynamicSelectivelyDampedLeastSquareSolver(){}
+	
+	template<class _OtherScaler> requires std::is_convertible_v<_OtherScaler, _Scaler>
+	inline void SetFactor(_OtherScaler	factor) { scaler_ = std::max(factor, static_cast<_OtherScaler>(MIN_FACTOR)); }
+	inline void SetFactor(_Scaler		factor) { scaler_ = std::max(factor, MIN_FACTOR); }
+
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override {
+		return A.transpose() * (A * A.transpose() + scaler_ * b.norm() * _Tdyn::Identity(A.rows(), A.rows())).inverse() * b;
+	}
+
+private:
+	_Scaler scaler_ = 0.001;
+	static constexpr _Scaler MIN_FACTOR = 1e-15;
+};
+
+template<class _Scaler>
+class DynamicJacobianTransposeSolver : public LinearSystemSolver<_Scaler> {
+	using _Tdyn = Matrix<_Scaler, Eigen::Dynamic, Eigen::Dynamic>;
+	using _Vecdyn = Matrix<_Scaler, Eigen::Dynamic, 1>;
+	using _Self = DynamicSelectivelyDampedLeastSquareSolver;
+public:
+	explicit DynamicJacobianTransposeSolver() {}
+
+	template<class _OtherScaler> requires std::is_convertible_v<_OtherScaler, _Scaler>
+	inline void SetFactor(_OtherScaler	factor)	{ scaler_ = std::max(factor, static_cast<_OtherScaler>(MIN_FACTOR)); }
+	inline void SetFactor(_Scaler		factor) { scaler_ = std::max(factor, MIN_FACTOR); }
+
+	_Tdyn operator()(const _Tdyn& A, const _Tdyn& b) const override {
+		_Vecdyn grad		  = A.transpose() * b;
+		_Vecdyn auxiliary_vec = A * grad;
+		return scaler_ * static_cast<_Vecdyn>(b).dot(auxiliary_vec) / auxiliary_vec.norm() * grad;
+	}
+
+private:
+	_Scaler scaler_ = 0.001;
+	static constexpr _Scaler MIN_FACTOR = 1e-15;
 };
 
 template<unsigned Cow, unsigned Row>
