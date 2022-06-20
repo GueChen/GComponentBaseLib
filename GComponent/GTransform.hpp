@@ -270,7 +270,7 @@ Twist<_Scaler> LogMapSE3Tose3(const SE3<_Scaler>& _T)
 	auto&& [axis, theta] = GetRotateAxisAngle(w);
 	Matrix<_Scaler, 3, 3> _cross_axis = CrossMatrix(axis);
 	
-	Matrix<_Scaler, 3, 3>
+	/*Matrix<_Scaler, 3, 3>
 		G_Inv = 
 		1. / theta * Matrix<_Scaler, 3, 3>::Identity()
 		- 0.5 * _cross_axis
@@ -278,7 +278,12 @@ Twist<_Scaler> LogMapSE3Tose3(const SE3<_Scaler>& _T)
 	if (abs(theta) < 1e-5)
 		G_Inv = Matrix<_Scaler, 3, 3> ::Identity();
 	else
-		G_Inv *= theta;
+		G_Inv *= theta;*/
+	_Scaler cot_half_theta = abs(theta) < 1e-4 ? 1.0 : 0.5 * theta / tan(0.5 * theta);
+	Matrix<_Scaler, 3, 3> 
+		G_Inv = Matrix<_Scaler, 3, 3>::Identity() 
+				- 0.5 * theta * _cross_axis 
+				+ (1 - cot_half_theta) * _cross_axis * _cross_axis;
 	Vector<_Scaler, 3> v = G_Inv * p;
 
 	Twist<_Scaler> t = Twist<_Scaler>::Zero();

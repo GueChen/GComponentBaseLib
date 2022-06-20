@@ -11,6 +11,8 @@
 #include <LSSolver/LinearSystemSolver.hpp>
 #include <GComponent/GTransform.hpp>
 #include <GComponent/GNumerical.hpp>
+#include <GComponent/GGeometry.hpp>
+#include <GComponent/heuristic_ik_solver.hpp>
 
 #include <Eigen/dense>
 #include <Eigen/Geometry>
@@ -144,15 +146,64 @@ bool	  InverseKinematic(DynVec<_Scaler>&				out_thetas,
 						   const int					MaxIteration = 50,
 						   const double					Scaler		 = 0.3f);
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="out_thetas">	ref		{DynVec}		[out]	result							计算结果		</param>
+/// <param name="zero_mat">		cref	{SE3}			[in]	zero-point end transform matrix 零点末端位姿矩阵</param>
+/// <param name="expcoords">	cref    {Twists}		[in]	exponential coordinates			指数坐标		</param>
+/// <param name="goal_mat">		cref	{SE3}			[in]	goal transform matrix			目标末端位姿矩阵</param>
+/// <param name="init_guess">	cref	{DynVec}		[in]	initial guess of result theta   初值点猜测值	</param>
+/// <param name="solver">		cref	{HerusticSolver}[in]	heuristic solver				启发式求解器	</param>
+/// <param name="Precision">	const	{Scaler}		[in]	precision						求解精度		</param>
+/// <param name="MaxIteration"> const	{int}			[in]	max iteration limit				最大迭代次数	</param>
+/// <param name="Scaler">		const	{Scaler}		[in]	decay scaler					步长衰减值		</param>
+/// <returns>							{bool}			[out]	flag of solving result			求解结果标志	</returns>
+template<class _Scaler>
+bool	  InverseKinematicHeuristic(
+						   DynVec<_Scaler>&				out_thetas,
+						   const SE3<_Scaler>&			zero_mat,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const SE3<_Scaler>&			goal_mat,
+						   const DynVec<_Scaler>&		init_guess,
+						   const HeuristicInverseKinematicSolver<_Scaler>&
+														solver,
+						   const double					Precision	= 1e-5f,
+						   const int					MaxIteration= 50);
+
+
 template<class _Scaler>
 bool	  JacobianWithSE3(DynMat<_Scaler>&				out_jacobian,
-						   SE3<_Scaler> &					out_matrix,
-						   const vector<Twist<_Scaler>>&	expcoords,
-						   const vector<SE3<_Scaler>>&    adj_matrices);
+						   SE3<_Scaler> &				out_matrix,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const vector<SE3<_Scaler>>&  adj_matrices);
 
+/// <summary>
+/// Get transform matrix using standard Denavit-Hartenberg method
+/// <para>
+/// 使用标准 DH 方法获取位姿变换矩阵
+/// </para>
+/// </summary>
+/// <param name="alpha">	{double}	 [in]  joint twist angle(rad.)			关节扭角(rad.)		</param>
+/// <param name="a">		{double}	 [in]  link length(m.)					连杆长度(m.)		</param>
+/// <param name="theta0">	{double}	 [in]  initial joint angle bais(rad.)	关节转角偏转(rad.)	</param>
+/// <param name="d">		{double}	 [in]  link bias(m.)					连杆偏置(m.)		</param>
+/// <param name="theta">	{double}	 [in]  joint angle(rad.)				关节转角(rad.)		</param>
+/// <returns>				{SE3 double} [out] transform matrix					位姿变换矩阵		</returns>
 SE3d StandardDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f StandardDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
 
+/// <summary>
+/// Get transform matrix using modified Denavit-Hartenberg method
+/// <para>
+/// 使用改进 DH 方法获取位姿变换矩阵
+/// </para>
+/// <param name="alpha">	{double}	 [in]  joint twist angle(rad.)			关节扭角(rad.)		</param>
+/// <param name="a">		{double}	 [in]  link length(m.)					连杆长度(m.)		</param>
+/// <param name="theta0">	{double}	 [in]  initial joint angle bais(rad.)	关节转角偏转(rad.)	</param>
+/// <param name="d">		{double}	 [in]  link bias(m.)					连杆偏置(m.)		</param>
+/// <param name="theta">	{double}	 [in]  joint angle(rad.)				关节转角(rad.)		</param>
+/// <returns>				{SE3 double} [out] transform matrix					位姿变换矩阵		</returns>
 SE3d ModifiedDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f ModifiedDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
 

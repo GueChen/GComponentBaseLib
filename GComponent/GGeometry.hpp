@@ -7,9 +7,9 @@
 #include <numeric>
 #include <vector>
 
-#include "GTransform.hpp"
+#include <GComponent/GTransform.hpp>
 
-#include "../LSSolver/LinearSystemSolver.hpp"
+#include <LSSolver/LinearSystemSolver.hpp>
 
 namespace GComponent
 {
@@ -110,8 +110,10 @@ Vector<_Scaler, 3> GetRotateAxisAngleFrom2Vec(const Vector<_Scaler, 3>& v1, cons
 {
 	Vector<_Scaler, 3> v1_norm = v1.normalized(),
 					   v2_norm = v2.normalized();
+	if ((v1_norm - v2_norm).norm() < std::numeric_limits<_Scaler>::epsilon()) return Vector<_Scaler, 3>::Zero();
 	Vector<_Scaler, 3> n = v1_norm.cross(v2_norm).normalized();
-	_Scaler angle = acos(v1_norm.dot(v2_norm));
+	_Scaler angle = acos(
+		std::max(std::min(v1_norm.dot(v2_norm), static_cast<_Scaler>(1.0)), static_cast<_Scaler>(-1.0)));
 
 	return (angle * n).eval();
 }

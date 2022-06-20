@@ -92,10 +92,11 @@ template<class _Scaler>
 bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat, const vector<Twist<_Scaler>>& expcoords, const SE3<_Scaler>& goal_mat, const DynVec<_Scaler>& init_guess, const IKSolver<_Scaler>& solver, const double Precision, const int MaxIteration, const double Scaler)
 {
 	if (init_guess.size() != expcoords.size()) return false;	
+	_Scaler				inv_scaler	    = 1.0 / Scaler;
 	SE3<_Scaler>		mat_cur,						// current SE3
 						mat_new;						// trial error SE3
 	vector<SE3<_Scaler>>adj_matrices;					// adjoint matrices
-	DynVec<_Scaler>		thetas		= init_guess,		// update val
+	DynVec<_Scaler>		thetas			= init_guess,	// update val
 						thetas_new;
 	DynMat<_Scaler>		A,								// Jacobian
 						x,								// val update direction
@@ -103,6 +104,7 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 						b_new;							
 	_Scaler				residual		= 0.0f,
 						residual_new	= 0.0f,
+						residual_min	= 0.0f,
 						decay			= 1.0f,			// step length													
 						tolerance		= 0.0f;																
 	int					iter_count		= 0;																
@@ -110,21 +112,18 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 	/* Measure residual between Desire and Cur 
 	*	b   = log(desire - cur) 
 	*	res = norm(b) 
-	* */	   	 
+	* */	
 	Transforms(adj_matrices, expcoords, init_guess);
 	ForwardKinematic(mat_cur, zero_mat, adj_matrices);
-	thetas	 = init_guess;
-	b		 = LogMapSE3Tose3((goal_mat * InverseSE3(mat_cur)).eval());
-	residual = b.norm();
-	
+	thetas		 = init_guess;
+	b			 = LogMapSE3Tose3((goal_mat * InverseSE3(mat_cur)).eval());
+	residual_min = residual	 
+				 = b.norm();
+	tolerance	 = -residual_min / 20.0;
+
 	/* Use this to trial and error until the residual under tolerance */
 	auto trial_error = [&]() {
 		thetas_new = thetas + decay * x;
-		
-	/*	for (auto& theta : thetas_new) {
-			theta = fmod(theta, MyPI);
-		}*/
-
 		Transforms(adj_matrices, expcoords, thetas_new);
 		ForwardKinematic(mat_new, zero_mat, adj_matrices);
 		b_new		 = LogMapSE3Tose3((goal_mat * InverseSE3(mat_new)).eval());
@@ -139,7 +138,7 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 		b		  = b_new;
 	};
 
-	/* Main Loop Solving the SQP Problem */
+	/* Main Loop Solving the LS Problem */
 	while (iter_count < MaxIteration && residual > Precision)
 	{
 		Jacobian(A, expcoords, adj_matrices);
@@ -147,24 +146,59 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 		x = solver(A, b);
 		trial_error();
 
-		while(residual < tolerance + residual_new) {			
-			decay *= Scaler;
-			if (abs(residual - residual_new) < Precision) {
+		while(residual_min < tolerance + residual_new) {
+			if (abs(residual - residual_new) < std::numeric_limits<_Scaler>::epsilon()) {
 				precision_flag = true;
 				break;
 			}
+			decay *= Scaler;			
 			trial_error();			
 		}
+		if (precision_flag) break;
 
-		if (precision_flag || abs(residual_new - residual) < 1e-8) break;
 		if (decay < 1.0f) {
-			decay /= Scaler ;
+			decay *= inv_scaler;
 		}
 
 		accept();
-		
-		tolerance = -residual / 10.0;
+
+		residual_min = std::min(residual, residual_min);
+		tolerance	 = -residual_min / 20.0 ;
 	
+		++iter_count;
+	}
+
+	/* Accept the Result or Refuse */
+	if (iter_count > MaxIteration && residual > Precision) {
+		return false;
+	}
+	else {
+		out_thetas = thetas;
+		return true;
+	}
+}
+
+template<class _Scaler>
+bool InverseKinematicHeuristic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat, const vector<Twist<_Scaler>>& expcoords, const SE3<_Scaler>& goal_mat, const DynVec<_Scaler>& init_guess, const HeuristicInverseKinematicSolver<_Scaler>& solver, const double Precision, const int MaxIteration)
+{
+	if (init_guess.size() != expcoords.size()) return false;
+	SE3<_Scaler>		mat_cur,						// current SE3
+						mat_new;						// trial error SE3
+	vector<SE3<_Scaler>>adj_matrices;					// adjoint matrices
+	DynVec<_Scaler>		thetas			= init_guess;			
+	_Scaler				residual		= 0.0f;								
+	int					iter_count		= 0;		
+	
+	Transforms(adj_matrices, expcoords, init_guess);
+	ForwardKinematic(mat_cur, zero_mat, adj_matrices);
+	residual	= (goal_mat - mat_cur).block(0, 3, 3, 1).norm();
+	
+	Vector<_Scaler, 3> goal_pos = goal_mat.block(0, 3, 3, 1);
+	
+	while (iter_count < MaxIteration && residual > Precision)
+	{
+		solver(mat_cur, thetas, adj_matrices, goal_pos, zero_mat, expcoords);
+		residual = (goal_mat - mat_cur).block(0, 3, 3, 1).norm();		
 		++iter_count;
 	}
 
