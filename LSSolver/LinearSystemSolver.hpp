@@ -53,9 +53,10 @@ public:
 		SVD svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		return svd.solve(b);
 	}
-
-
 };
+template<class _Scaler>
+using LNSolver = DynamicLeastNormSolver<_Scaler>;
+
 
 template<class _Scaler>
 class DynamicWeightedLeastNormSolver: public LinearSystemSolver<_Scaler> {
@@ -72,6 +73,8 @@ public:
 private:
 	_Tdyn _weight_mat_inverse;
 };
+template<class _Scaler>
+using WLNSolver = DynamicWeightedLeastNormSolver<_Scaler>;
 
 template<class _Scaler>
 class DynamicDampedLeastSquareSolver : public LinearSystemSolver<_Scaler> {
@@ -96,6 +99,8 @@ private:
 
 	static constexpr _Scaler MIN_FACTOR = 1e-10;
 };
+template<class _Scaler>
+using DLSSolver = DynamicDampedLeastSquareSolver<_Scaler>;
 
 template<class _Scaler>
 class DynamicAdaptiveDampedLeastSquareSolver : public LinearSystemSolver<_Scaler> {
@@ -123,6 +128,8 @@ private:
 	_Scaler scaler_ = 0.001;
 	static constexpr _Scaler MIN_FACTOR = 1e-15;
 };
+template<class _Scaler>
+using ADLSSolver = DynamicAdaptiveDampedLeastSquareSolver<_Scaler>;
 
 template<class _Scaler>
 class DynamicJacobianTransposeSolver : public LinearSystemSolver<_Scaler> {
@@ -147,6 +154,8 @@ private:
 	_Scaler scaler_ = 0.001;
 	static constexpr _Scaler MIN_FACTOR = 1e-15;
 };
+template<class _Scaler>
+using JacobiTSolver = DynamicJacobianTransposeSolver<_Scaler>;
 
 template<class _Scaler>
 class DynamicSelectivelyDampedLeastSquareSolver :public LinearSystemSolver<_Scaler> {
@@ -199,6 +208,9 @@ public:
 private:
 	static constexpr _Scaler GammaMax = GComponent::MyPI / 4.0;
 };
+template<class _Scaler>
+using SDLSSolver = DynamicSelectivelyDampedLeastSquareSolver<_Scaler>;
+
 
 template<unsigned Cow, unsigned Row>
 class StaticInverseSolver {

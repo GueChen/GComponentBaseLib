@@ -109,6 +109,7 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 						tolerance		= 0.0f;																
 	int					iter_count		= 0;																
 	bool				precision_flag  = false;
+
 	/* Measure residual between Desire and Cur 
 	*	b   = log(desire - cur) 
 	*	res = norm(b) 

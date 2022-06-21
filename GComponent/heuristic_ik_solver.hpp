@@ -100,6 +100,8 @@ public:
 		}
 	}
 };
+template<class _Scaler>
+using FCCDSolver = ForwardCyclicCoordinateDescentSolver<_Scaler>;
 
 /// <summary>
 /// Cyclic coordinate descent solver using backward iteration form, from top to base.
@@ -126,6 +128,42 @@ public:
 		}
 	}
 };
+template<class _Scaler>
+using BCCDSolver = BackwardCyclicCoordinateDescentSolver<_Scaler>;
+
+// TODO: Implementation the FABRIK algorithom
+// NOTE: 1). thtas as input is not a smart choice than joint position
+//		 2). combine screw axis, suggest implemente it use following ideas:
+//			 a). caculate all joints in first iterations
+//			 b). puts the joint poses as input, output new pose
+//			 c). if finish caculation, solve new joint poses one by one use pose
+template<class _Scaler>
+class ForwardAndBackwardReachingInverseKinematicSolver: public HeuristicInverseKinematicSolver<_Scaler> {
+using _Vec3  = Vector<_Scaler, 3>;
+using _SE3   = SE3<_Scaler>;
+using _Twist = Twist<_Scaler>;
+public:
+	[[deprecated]]
+	ForwardAndBackwardReachingInverseKinematicSolver()  = default;
+	~ForwardAndBackwardReachingInverseKinematicSolver() = default;
+
+	void operator()(_SE3&							mat_cur, 
+					DynVec<_Scaler>&				thetas, 
+					vector<_SE3>&					adj_matrices,
+					const _Vec3&					goal_pos,
+					const _SE3&						zero_mat,
+					const vector<_Twist>&			exp_coords) const override
+	{		
+		const int n = thetas.size();
+		assert(n != 0);
+		/* Forward Reaching */
+		
+		/* Backward Reaching */
+
+	}
+
+};
+
 }
 }
 #endif // !_HEURISTIC_IK_SOLVER_HPP
