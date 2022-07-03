@@ -31,17 +31,21 @@ concept ScalarEquivalence = std::convertible_to<T, typename Derived::Scalar> || 
 template<typename Derived, typename OtherDerived>
 concept MatScalarEquivalence = std::same_as<typename Derived::Scalar, typename OtherDerived::Scalar>;
 
+// Special concepts for most usually types
+// matrix concepts
 template<typename Derived>
 concept Mat3Convertible = MatConvertible<Derived, 3, 3>;
-
 template<typename Derived>
 concept Mat4Convertible = MatConvertible<Derived, 4, 4>;
-
+template<typename Derived>
+concept Mat6Convertible = MatConvertible<Derived, 6, 6>;
+// vector concepts
 template<typename Derived>
 concept Vec3Convertible = MatConvertible<Derived, 3, 1>;
-
 template<typename Derived>
 concept Vec4Convertible = MatConvertible<Derived, 4, 1>;
+template<typename Derived>
+concept Vec6Convertible = MatConvertible<Derived, 6, 1>;
 
 } // namespace GComponent
 
