@@ -3,7 +3,7 @@
 
 GPlane::GPlane()
 {
-	std::tie(ID, VBO) = GMeshObject::genVABO((void *)VertexData, sizeof(VertexData));
+	std::tie(model_id_, VBO) = GMeshObject::genVABO((void *)VertexData, sizeof(VertexData));
 	
 	GMeshObject::EnableVertexAttrbArrays(3, 3, 2);
 	TextureID =  GMeshObject::loadFromFile("Resources/block.png");
@@ -16,7 +16,7 @@ void GPlane::Draw(MyShader& shader) const noexcept
 	shader.setInt("texture_diffuse", 0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TextureID);
-	glBindVertexArray(ID);
+	glBindVertexArray(model_id_);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

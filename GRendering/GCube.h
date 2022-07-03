@@ -7,7 +7,7 @@ class GCube :
 public:
     GCube();
 
-    ~GCube() override { glDeleteVertexArrays(1, &ID); glDeleteBuffers(1, &VBO); }
+    ~GCube() override { glDeleteVertexArrays(1, &model_id_); glDeleteBuffers(1, &VBO); }
     
     void Draw(MyShader& shader) const noexcept override;
 

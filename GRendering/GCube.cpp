@@ -8,7 +8,7 @@ GCube::GCube()
 {
 	
 	// 数据句柄生成
-	std::tie(ID, VBO) = GMeshObject::genVABO((void *)VertexData, sizeof(VertexData));
+	std::tie(model_id_, VBO) = GMeshObject::genVABO((void *)VertexData, sizeof(VertexData));
 
 	// 数据传递
 	GMeshObject::EnableVertexAttrbArrays(3, 3, 2);
@@ -23,7 +23,7 @@ GCube::GCube()
 
 void GCube::Draw(MyShader& shader) const noexcept
 {
-	glBindVertexArray(ID);
+	glBindVertexArray(model_id_);
 
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	

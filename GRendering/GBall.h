@@ -21,7 +21,7 @@ namespace PhsycalLagrangian {
         unsigned TextureID;
         vec3 center;
         float radius;
-        Mesh mesh;
+        MeshComponent mesh;
     };
 }
 
