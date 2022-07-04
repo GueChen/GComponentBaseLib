@@ -41,6 +41,7 @@ using Twistd = Twist<double>;
 template<Vec3Convertible Derived>
 auto Shear(const Eigen::MatrixBase<Derived>& shear)
 {
+	assert(shear.rows() == 3 && shear.cols() == 1 && "Shear operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
 	Mat3 shear_mat = Mat3::Identity();
 	shear_mat(0, 1) = shear.x();
@@ -60,6 +61,8 @@ auto Shear(const Eigen::MatrixBase<Derived>& shear)
 template<Vec3Convertible Derived>
 auto ShearInverse(const Eigen::MatrixBase<Derived>& shear) 
 {
+	assert(shear.rows() == 3 && shear.cols() == 1 && 
+		   "Inv Shear operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
 	Mat3 shear_mat  = Mat3::Identity();
 	shear_mat(0, 1) = -shear.x();
@@ -79,6 +82,8 @@ auto ShearInverse(const Eigen::MatrixBase<Derived>& shear)
 template<Vec3Convertible Derived>
 auto Scale(const Eigen::MatrixBase<Derived>& scale)
 {
+	assert(scale.rows() == 3 && scale.cols() == 1 && 
+		   "Scale operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
 	Mat3 scale_mat = Mat3::Zero();
 	scale_mat(0, 0) = scale.x();
@@ -98,6 +103,8 @@ auto Scale(const Eigen::MatrixBase<Derived>& scale)
 template<Vec3Convertible Derived>
 auto ScaleInverse(const Eigen::MatrixBase<Derived>& scale)
 {
+	assert(scale.rows() == 3 && scale.cols() == 1 && 
+		   "Inv Scale operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
 	Mat3 scale_mat = Mat3::Zero();
 	if (abs(scale.x()) > 1e-8) scale_mat(0, 0) = 1.0 / scale.x();	
@@ -150,6 +157,8 @@ GetRotateAxisAngle(const Eigen::MatrixBase<Derived>& vec)
 template<Vec3Convertible Derived>
 auto Hat(const Eigen::MatrixBase<Derived>& vec)
 {
+	assert(vec.cols() == 1 && vec.rows() == 3 && 
+		   "Hat operator: R^3 -> [so3], only support 3 x 1 vector, the size not matching");
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
 	Mat3 mat  = Mat3::Zero();
 	mat(0, 1) = -vec[2]; 
@@ -222,6 +231,15 @@ inline auto Roderigues(const Eigen::MatrixBase<Derived>& v)
 	return Roderigues(Hat(v.normalized()), v.norm());
 }
 
+/// <summary>
+/// Using Roderigues formula's diiferential formula to get matrix from so3 axis angle vector with unit [rad.]
+/// <para>
+/// 根据 Roderigues 公式从轴角向量获取对应的微分旋转矩阵
+/// </para>
+/// </summary>
+/// <param name="skew_sym_m">	cref	{[so3]}		[in]	3 x 3 skew symmetric matrix		3 x 3 轴角矩阵		</param>
+/// <param name="theta">		val		{R}			[in]	a real number angle in [rad.]	实数弧度角			</param>
+/// <returns>					val		{R^3 x 3}	[out]	3 x 3 differential matrix		3 x 3 旋转矩阵微分	</returns>
 template<Mat3Convertible Derived, ScalarEquivalence<Derived> U>
 inline Eigen::Matrix3<typename Derived::Scalar> 
 DiffRoderigues(const Eigen::MatrixBase<Derived>& skew_sym_m, U theta)
@@ -230,6 +248,14 @@ DiffRoderigues(const Eigen::MatrixBase<Derived>& skew_sym_m, U theta)
     return  Mat3::Identity() + cos(theta) * skew_sym_m + (1 + sin(theta)) * (skew_sym_m * skew_sym_m);
 }
 
+/// <summary>
+/// Logrithimic map : get a so3 vector from a SO3 rotation matrix
+/// <para>
+/// 使用对数映射从旋转矩阵获取对应的轴角向量
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SO3}	[in]	3 x 3 rotation matrix			3 x 3 旋转矩阵		</param>
+/// <returns>			val		{so3}	[out]	3 x 1 angle axis vector	[rad.]	3 x 1 弧度轴角向量	</returns>
 template<Mat3Convertible Derived>
 Eigen::Vector3<typename Derived::Scalar> 
 LogMapSO3Toso3(const Eigen::MatrixBase<Derived>& mat)
@@ -254,9 +280,16 @@ LogMapSO3Toso3(const Eigen::MatrixBase<Derived>& mat)
 	return theta * Vee(mat - mat.transpose()) / (2. * sin(theta));
 }
 
+/// <summary>
+/// get inverse of SE3 homogeneous transform matrix
+/// <para>
+/// 获取齐次变换矩阵的逆
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SE3}	[in]	4 x 4 homogeneous transform matrix		4 x 4 齐次变换矩阵	</param>
+/// <returns>			val		{SE3}	[out]	inverse of 4 x 4 input matrix			4 x 4 输入矩阵的逆	</returns>
 template<Mat4Convertible Derived>
-Eigen::Matrix4<typename Derived::Scalar> 
-InverseSE3(const Eigen::MatrixBase<Derived>& mat)
+auto InverseSE3(const Eigen::MatrixBase<Derived>& mat)
 {
 	using SE3	 = Eigen::Matrix4<typename Derived::Scalar>;
 	SE3 _inv_mat = SE3::Identity();
@@ -267,6 +300,14 @@ InverseSE3(const Eigen::MatrixBase<Derived>& mat)
 	return _inv_mat;
 }
 
+/// <summary>
+/// Decompose a twist into axis and angle components
+/// <para>
+/// 将一个旋量解耦为轴角分量的形式
+/// </para>
+/// </summary>
+/// <param name="t">	cref	{twist}		[in]	6 x 1 twist vector								6 x 1 旋量					</param>
+/// <returns>			val		{twist, R}	[out]	normalized twist direction with angle in [rad.] 正则化旋量轴向与实数弧度角	</returns>
 template<Vec6Convertible Derived>
 pair<Twist<typename Derived::Scalar>, typename Derived::Scalar> 
 GetTwistAxisAngle(const Eigen::MatrixBase<Derived>& t)
@@ -287,9 +328,17 @@ GetTwistAxisAngle(const Eigen::MatrixBase<Derived>& t)
 	return std::make_pair(xi, theta);
 }
 
+/// <summary>
+/// Exponential map : get a SE3 homogeneous transform matrix form a se3 vector with angle
+/// <para>
+/// 指数映射 : 从一个 se3 向量与弧度角获取 SE3 齐次变换矩阵
+/// </para>
+/// </summary>
+/// <param name="norm_t">	cref	{se3}	[in]	normalized 6 x 1 twist vector		正则化的 6 x 1 向量	</param>
+/// <param name="theta">	val		{R}		[in]	the real number angle in [rad.]		弧度实数角			</param>
+/// <returns>				val		{SE3}	[out]	4 x 4 homogeneous transform matrix	4 x 4 齐次变换矩阵	</returns>
 template<Vec6Convertible Derived, ScalarEquivalence<Derived> U>
-SE3<typename Derived::Scalar> 
-ExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
+auto ExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
 {
 	using Scalar = typename Derived::Scalar;
 	using Vec3	 = Eigen::Vector3<Scalar>;
@@ -311,6 +360,14 @@ ExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
 	return mat;
 }
 
+/// <summary>
+/// Exponential map : get a SE3 homogeneous transform matrix form a se3 vector
+/// <para>
+/// 指数映射 : 从一个 se3 向量获取 SE3 齐次变换矩阵
+/// </para>
+/// </summary>
+/// <param name="t">	cref	{se3}	[in]	6 x 1 twist vector in [rad.]		弧度制 6 x 1 旋量	</param>
+/// <returns>			val		{SE3}	[out]	4 x 4 homogeneous transform matrix	4 x 4 齐次变换矩阵	</returns>
 template<Vec6Convertible Derived>
 inline auto ExpMapping(const Eigen::MatrixBase<Derived> & t)
 {
@@ -318,6 +375,15 @@ inline auto ExpMapping(const Eigen::MatrixBase<Derived> & t)
 	return ExpMapping(xi, theta);
 }
 
+/// <summary>
+/// Differential Exponential map: get a differential theta transform matrix from se3 vector and real number anlge [rad.]
+/// <para>
+/// 微分指数映射 : 获取齐次变换矩阵对于角度的微分
+/// </para>
+/// </summary>
+/// <param name="norm_t">	cref	{se3}		[in]	normalized 6 x 1 twist vector		正则化的 6 x 1 向量	</param>
+/// <param name="theta">	val		{R}			[in]	the real number angle in [rad.]		弧度实数角			</param>
+/// <returns>				val		{R^3 x 3}	[out]	the differential matrix				微分矩阵			</returns>
 template<Vec6Convertible Derived, ScalarEquivalence<Derived> U>
 SE3<typename Derived::Scalar> 
 DiffExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
@@ -343,20 +409,54 @@ DiffExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
     return mat;
 }
 
+/// <summary>
+/// get the twist vector from screw q, w and h components
+/// <para>
+/// 从螺旋轴位置、轴向与节距分量中获取旋量
+/// </para>
+/// </summary>
+/// <param name="q">	cref	{R^3}	[in]	screw axis position		螺旋轴上一点位置	</param>
+/// <param name="w">	cref	{R^3}	[in]	screw axis direction	螺旋轴方向			</param>
+/// <param name="h">	val		{R}		[in]	screw pitch				节距				</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector		6 x 1 旋量向量		</returns>
 template<Vec3Convertible Derived, ScalarEquivalence<Derived> U>
-Twist<typename Derived::Scalar> 
-ScrewToTwist(const Eigen::MatrixBase<Derived> & q, const Eigen::MatrixBase<Derived>& w, U h = 0.0)
+auto ScrewToTwist(const Eigen::MatrixBase<Derived> & q, const Eigen::MatrixBase<Derived>& w, U h)
 {
 	using Twist = Eigen::Vector<typename Derived::Scalar, 6>;
-	Twist _normal_twist				= Twist::Zero();
-	_normal_twist.block(0, 0, 3, 1) = w.normalized();
-	_normal_twist.block(3, 0, 3, 1) = q.cross(w) + h * w.normalized();
-	return _normal_twist;
+	Twist xi			 = Twist::Zero();
+	xi.block(0, 0, 3, 1) = w.normalized();
+	xi.block(3, 0, 3, 1) = q.cross(w) + h * w.normalized();
+	return xi;
 }
 
+/// <summary>
+/// get the twist vector from screw q and w components without h(.equal h = 0)
+/// <para>
+/// 从螺旋轴位置、轴向中获取旋量，等价于节距为 0 的情况
+/// </para>
+/// </summary>
+/// <param name="q">	cref	{R^3}	[in]	screw axis position		螺旋轴上一点位置	</param>
+/// <param name="w">	cref	{R^3}	[in]	screw axis direction	螺旋轴方向			</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector		6 x 1 旋量向量		</returns>
+template<Vec3Convertible Derived>
+auto ScrewToTwist(const Eigen::MatrixBase<Derived>& q, const Eigen::MatrixBase<Derived>& w)
+{
+	using Twist = Eigen::Vector<typename Derived::Scalar, 6>;
+	Twist xi			 = Twist::Zero();
+	xi.block(0, 0, 3, 1) = w.normalized();
+	xi.block(3, 0, 3, 1) = q.cross(w);
+	return xi;
+}
+
+/// <summary>
+/// Logrithimic map : get a se3 twist from a SE3 homogeneous transform matrix
+/// <para>
+/// 使用对数映射从齐次变换矩阵获取对应的旋量
+/// </summary>
+/// <param name="T">	cref	{SE3}	[in]	4 x 4 homogeneous transform matrix	齐次变换矩阵	</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector					6 x 1 旋量		</returns>
 template<Mat4Convertible Derived>
-Twist<typename Derived::Scalar> 
-LogMapSE3Tose3(const Eigen::MatrixBase<Derived>& T)
+auto LogMapSE3Tose3(const Eigen::MatrixBase<Derived>& T)
 {
 	assert(T.rows() == 4 && T.cols() == 4 && "logrithmic: SE3 -> se3, matrix size not matching");
 	using Scalar = typename Derived::Scalar;
@@ -381,6 +481,14 @@ LogMapSE3Tose3(const Eigen::MatrixBase<Derived>& T)
 	return xi;
 }
 
+/// <summary>
+/// Adjoint map : get R^6 x 6 adjoint matrix from SE3 4 x 4 homogeneous transform matrix
+/// <para>
+/// 伴随变换：从 4 x 4 齐次变换矩阵获取对应的 6 x 6 伴随矩阵
+/// </para>
+/// </summary>
+/// <param name="T">	cref	{SE3}		[in]	4 x 4 homogeneous transform matrix	齐次变换矩阵	</param>
+/// <returns>			val		{R^6 x 6}	[out]	6 x 6 adjoint matrix				伴随变换矩阵	</returns>
 template<Mat4Convertible Derived>
 AdMatrix<typename Derived::Scalar> Adjoint(const Eigen::MatrixBase<Derived> & T)
 {
@@ -391,7 +499,7 @@ AdMatrix<typename Derived::Scalar> Adjoint(const Eigen::MatrixBase<Derived> & T)
 	using AdjMat = Eigen::Matrix<Scalar, 6, 6>;
 
 	Mat3	R				= T.block(0, 0, 3, 3);
-	Mat3	skew_sym_p		= Hat(T.block(0, 3, 3, 1));
+	Mat3	skew_sym_p		= Hat(static_cast<Vec3>(T.block(0, 3, 3, 1)));
 	AdjMat	adMat			= AdjMat::Zero();
 
 	adMat.block(0, 0, 3, 3) = adMat.block(3, 3, 3, 3) 
@@ -402,13 +510,13 @@ AdMatrix<typename Derived::Scalar> Adjoint(const Eigen::MatrixBase<Derived> & T)
 }
 
 /// <summary>
-/// Decomposing 3 x 3 matrix into two 3 x 3 matrices of orthogonal matrix Q and upper triangular matrix R
+/// Decomposing 3 x 3 matrix into two 3 x 3 matrices of orthogonal matrix Q and upper triangular matrix R using Schmidt Orthogonalization
 /// <para>
-/// 将一个可逆 3 x 3 实矩阵分解为 Q R 两个矩阵，其中 Q 为单位正交阵， R 为上三角矩阵 
+/// 使用 Schmidt 正交化解耦一个可逆 3 x 3 实矩阵为 Q R 两个矩阵，其中 Q 为单位正交阵， R 为上三角矩阵 
 /// </para>
 /// </summary>
-/// <param name="mat"></param>
-/// <returns></returns>
+/// <param name="mat">	cref	{R^3x3}			[in]	3 x 3 real number matrix				3 x 3 实矩阵				</param>
+/// <returns>			val		{SO3, R^3x3}	[out]	rotate matrix and upper triangle matrix 旋转正交矩阵与上三角矩阵	</returns>
 template<Mat3Convertible Derived>
 pair<SO3<typename Derived::Scalar>, Eigen::Matrix3<typename Derived::Scalar>> 
 QRDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
@@ -452,15 +560,13 @@ QRDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
 }
 
 /// <summary>
-/// Decoposing a 3 x 3 upper triangular Matrix into two 3 x 1 vectors of scale and shear 
-/// <para>分解 3 x 3 上三角实矩阵为 缩放 和 剪切 两个 3 x 1 向量 </para>
+/// Decompose a 3 x 3 upper triangular Matrix into two 3 x 1 vectors of scale and shear 
+/// <para>
+/// 解耦 3 x 3 上三角实矩阵为两个 3 x 1 向量：缩放和剪切 
+/// </para>
 /// </summary>
-/// <typeparam name="_Scaler">	{float/double} precision	</typeparam>
-/// <param name="ut_mat"> 　
-/// <para>　　{const ref Matrix3} </para>
-/// <para>　　upper triangular Matrix 上三角实矩阵</para>
-/// </param>
-/// <returns></returns>
+/// <param name="ut_mat">	cref	{R^3x3}		[in]	3 x 3 upper triangle matrix				3 x 3 上三角矩阵	</param>
+/// <returns>				val		{R^3, R^3}	[out]	pair of 3 x 1 vectors: scale and shear	缩放与剪切向量		</returns>
 template<Mat3Convertible Derived>
 pair<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
 SSDecompositionMat3(const Eigen::MatrixBase<Derived>& ut_mat)
@@ -471,6 +577,14 @@ SSDecompositionMat3(const Eigen::MatrixBase<Derived>& ut_mat)
 			 Vec3(ut_mat(0, 1) / ut_mat(0, 0), ut_mat(0, 2) / ut_mat(0, 0), ut_mat(1, 2) / ut_mat(1, 1))};	// shear vector
 }
 
+/// <summary>
+/// Decompose a real number 3 x 3 matrix into Rotate matrix, scale vector and shear vector
+/// <para>
+/// 解耦 3 x 3 实矩阵为一个旋转矩阵，缩放向量与剪切向量
+/// </para>
+/// </summary>
+/// <param name="mat">		cref	{R^3x3}			[in]	3 x 3 real number matrix			3 x 3 实数矩阵			</param>
+/// <returns>				val		{SO3, R^3, R^3}	[out]	tuple of rot, scale and shear		旋转、缩放与剪切元胞	</returns>
 template<Mat3Convertible Derived>
 tuple<SO3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
 RSSDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
@@ -483,6 +597,14 @@ RSSDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
 	return { Q, scale, shear};
 }
 
+/// <summary>
+/// Decompose 4 x 4(R^3x3 x t^3) affine transform matrix into R^3x3 matrix and t^3 vector
+/// <para> 
+/// 将 4 x 4 仿射变换矩阵解耦为 3 x 3 矩阵与 3 x 1 向量
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{R^4x4}			[in]	4 x 4 affine transform matrix	4 x 4 仿射变换矩阵	</param>
+/// <returns>			val		{R^3x3, R^3}	[out]	pair of R matrix and t vecotr	R 矩阵与 t 向量对	</returns>
 template<Mat4Convertible Derived>
 pair<Eigen::Matrix3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
 RtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
@@ -496,6 +618,14 @@ RtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
 	return { R, t };
 }
 
+/// <summary>
+/// Decompose 4 x 4 affine transform matrix into trans, rot, scale, shear components tuple
+/// <para>
+/// 解耦 4 x 4 仿射矩阵为代表平移、旋转、缩放与剪切的 3 x 1 向量元胞
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{R^4x4}			[in]	4 x 4 afiine transform matrix				4 x 4 仿射变换矩阵	</param>
+/// <returns>			val		{R^3,...}_4		[out]	3 x 1 vector tuple[t, rot, scale, shear]	3 x 1 向量元胞		</returns>
 template<Mat4Convertible Derived>
 tuple<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>, 
 	  Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>>
@@ -509,6 +639,14 @@ TRSSDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
 	return { t, LogMapSO3Toso3(rot_mat), scale, shear};			
 }
 
+/// <summary>
+/// Decompose 4 x 4 homogeneous transform matrix into 3 x 1 vectors of trans and rot
+/// <para>
+/// 解耦 4 x 4 齐次变换矩阵为平移与旋转两个 3 x 1 向量
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SE3}		[in]	4 x 4 homogeneous transform matrix		4 x 4 齐次变换矩阵	</param>
+/// <returns>			val		{R^3, R^3}	[out]	3 x 1 vectors pair of trans and rot		3 x 1 向量元胞 {平移, 旋转}</returns>
 template<Mat4Convertible Derived>
 pair<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
 rtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
