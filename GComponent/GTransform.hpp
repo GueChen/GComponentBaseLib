@@ -1,4 +1,14 @@
-ï»¿#pragma once
+/**
+ *  @file  	GTransform.hpp
+ *  @brief 	some transform functions use Lie group and decompose theory.
+ *  @author Gue Chen<guechen@buaa.edu.cn>
+ *  @date 	Nov  xxx, 2021 create this file
+*			July 4th, 2022 using concept to reconstruct functions
+ **/
+#ifndef _GTRANSFORM_HPP
+#define _GTRANSFORM_HPP
+
+#include <Concept/gconcept.hpp>
 
 #include <eigen3/Eigen/Dense>
 #include <tuple>
@@ -7,6 +17,7 @@ namespace GComponent {
 using Eigen::Matrix;
 using Eigen::Vector;
 using std::pair;
+using std::tuple;
 using DynMatrixd = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 template<class _Scaler>
 using SE3	 = Eigen::Matrix4<_Scaler>;
@@ -18,394 +29,636 @@ template<class _Scaler>
 using AdMatrix = Matrix<_Scaler, 6, 6>;
 using SE3d   = SE3<double>;
 using Twistd = Twist<double>;
-using std::tuple;
 
-
-//template<typename _Scaler>
-//class so3 :public Matrix<_Scaler, 3, 1>
-//{
-//
-//};
-//
-//template<typename _Scaler>
-//class SO3 : public Matrix<_Scaler, 3, 3>
-//{
-//
-//};
-//
-//template<typename _Scaler>
-//class se3 : public Matrix<_Scaler, 6, 1>
-//{
-//
-//};
-//
-//template<typename _Scaler>
-//class SE3 : public Matrix<_Scaler, 4, 4>
-//{
-//
-//};
-//
-//template<typename _Scaler>
-//class AdjointSE3 : public Matrix<_Scaler, 6, 6>
-//{
-//
-//};
-
-template<class _Scaler>
-Matrix<_Scaler, 3, 3> Shear(const Vector<_Scaler, 3>& shear) 
+/// <summary>
+/// make 3 x 3 shear matrix form 3 x 1 shear vector
+/// <para>
+/// Ê¹ÓÃ 3 x 1 ¼ôÇĞÏòÁ¿»ñÈ¡ 3 x 3 ¼ôÇĞ¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="shear">	cref	{vec3}	3 x 1 shear vctor	3 x 1 ¼ôÇĞÏòÁ¿		</param>
+/// <returns>				val		{mat3}	3 x 3 shear matrix	3 x 3 ¼ôÇĞ¾ØÕó		</returns>
+template<Vec3Convertible Derived>
+auto Shear(const Eigen::MatrixBase<Derived>& shear)
 {
-	Matrix<_Scaler, 3, 3> shear_mat = Matrix<_Scaler, 3, 3>::Identity();
+	assert(shear.rows() == 3 && shear.cols() == 1 && "Shear operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	Mat3 shear_mat = Mat3::Identity();
 	shear_mat(0, 1) = shear.x();
 	shear_mat(0, 2) = shear.y();
 	shear_mat(1, 2) = shear.z();
 	return shear_mat;
 }
 
-template<class _Scaler>
-Matrix<_Scaler, 3, 3> ShearInverse(const Vector<_Scaler, 3>& shear) 
+/// <summary>
+/// make 3 x 3 inverse matrix of shear from 3 x 1 shear vector
+/// <para>
+/// Ê¹ÓÃ 3 x 1 ¼ôÇĞÏòÁ¿»ñÈ¡ 3 x 3 ¼ôÇĞÄæ¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="shear">	cref	{vec3}	3 x 1 shear vctor			3 x 1 ¼ôÇĞÏòÁ¿			</param>
+/// <returns>				val		{mat3}	3 x 3 inverse shear matrix	3 x 3 ¼ôÇĞÄæ¾ØÕó		</returns>
+template<Vec3Convertible Derived>
+auto ShearInverse(const Eigen::MatrixBase<Derived>& shear) 
 {
-	Matrix<_Scaler, 3, 3> shear_mat = Matrix<_Scaler, 3, 3>::Identity();
+	assert(shear.rows() == 3 && shear.cols() == 1 && 
+		   "Inv Shear operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	Mat3 shear_mat  = Mat3::Identity();
 	shear_mat(0, 1) = -shear.x();
 	shear_mat(0, 2) = shear.x() * shear.z() - shear.y();
 	shear_mat(1, 2) = -shear.z();
 	return shear_mat;
 }
 
-template<class _Scaler>
-Matrix<_Scaler, 3, 3> Scale(const Vector<_Scaler, 3>& scale) 
+/// <summary>
+/// make 3 x 3 scale matrix form 3 x 1 scale vector
+/// <para>
+/// Ê¹ÓÃ 3 x 1 Ëõ·ÅÏòÁ¿»ñÈ¡ 3 x 3 Ëõ·Å¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="scale">	cref	{vec3}	3 x 1 scale vctor	3 x 1 Ëõ·ÅÏòÁ¿		</param>
+/// <returns>				val		{mat3}	3 x 3 scale matrix	3 x 3 Ëõ·Å¾ØÕó		</returns>
+template<Vec3Convertible Derived>
+auto Scale(const Eigen::MatrixBase<Derived>& scale)
 {
-	Matrix<_Scaler, 3, 3> scale_mat = Matrix<_Scaler, 3, 3>::Zero();
+	assert(scale.rows() == 3 && scale.cols() == 1 && 
+		   "Scale operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	Mat3 scale_mat = Mat3::Zero();
 	scale_mat(0, 0) = scale.x();
 	scale_mat(1, 1) = scale.y();
 	scale_mat(2, 2) = scale.z();
 	return scale_mat;
 }
 
-template<class _Scaler>
-Matrix<_Scaler, 3, 3> ScaleInverse(const Vector<_Scaler, 3>& scale) 
+/// <summary>
+/// make 3 x 3 inverse scale matrix form 3 x 1 scale vector
+/// <para>
+/// Ê¹ÓÃ 3 x 1 Ëõ·ÅÏòÁ¿»ñÈ¡ 3 x 3 Ëõ·ÅÄæ¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="scale">	cref	{vec3}	3 x 1 scale vctor			3 x 1 Ëõ·ÅÏòÁ¿			</param>
+/// <returns>				val		{mat3}	3 x 3 inverse scale matrix	3 x 3 Ëõ·ÅÄæ¾ØÕó		</returns>
+template<Vec3Convertible Derived>
+auto ScaleInverse(const Eigen::MatrixBase<Derived>& scale)
 {
-	Matrix<_Scaler, 3, 3> scale_mat = Matrix<_Scaler, 3, 3>::Zero();
+	assert(scale.rows() == 3 && scale.cols() == 1 && 
+		   "Inv Scale operator: R^3 -> R^3 x 3, only support 3 x 1 vector, the size not matching");
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	Mat3 scale_mat = Mat3::Zero();
 	if (abs(scale.x()) > 1e-8) scale_mat(0, 0) = 1.0 / scale.x();	
 	if (abs(scale.y()) > 1e-8) scale_mat(1, 1) = 1.0 / scale.y();
 	if (abs(scale.z()) > 1e-8) scale_mat(2, 2) = 1.0 / scale.z();
 	return scale_mat;
 }
 
-// Rt + p
-template<class Scaler>
-inline Vector<Scaler, 3> affineProduct(const Matrix<Scaler, 4, 4> & lmat, const Vector<Scaler, 3> & point)
+/// <summary>
+/// Caculator homogeneous Mat with a R^3 vector return as a vector, represent translate and rotate on an R^3 vector as Rt + p
+/// <para>
+/// ¶ÔÒ»¸ö 3 x 1 ÏòÁ¿Ê©¼ÓÆë´Î¾ØÕó±ä»»£¬¼¸ºÎÖ±¹ÛÉÏ´ú±í×Å¶ÔÒ»¸öµãÊ©¼ÓĞı×ªÓëÆ½ÒÆ±ä»»
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SE3}	homogeneous matrix in SE3	Æë´Î±ä»»¾ØÕó					</param>
+/// <param name="vec">	cref	{vec3}	vector in R^3				3 x 1 ÏòÁ¿						</param>
+/// <returns>			val		{vec3}	new vector after transform	±ä»»ºóµÄĞÂÏòÁ¿					</returns>
+template<Mat4Convertible DerivedMat, Vec3Convertible DerivedVec> 
+requires MatScalarEquivalence<DerivedMat, DerivedVec>
+inline Eigen::Vector3<typename DerivedMat::Scalar> 
+AffineProduct(const Eigen::MatrixBase<DerivedMat>& mat, const Eigen::MatrixBase<DerivedVec>& vec)
 {
-    return static_cast<Vector<Scaler, 3>>(lmat.block(0, 0, 3, 3)* point + lmat.block(0, 3, 3, 1));
-}
-template<class Scaler>
-inline pair<Vector<Scaler, 3>, Scaler> GetRotateAxisAngle(const Vector<Scaler, 3>& _w)
-{
-	return std::make_pair(_w.normalized(), _w.norm());
+    return mat.block(0, 0, 3, 3) * vec + mat.block(0, 3, 3, 1);
 }
 
-template<class Scaler>
-Matrix<Scaler, 3, 3> CrossMatrix(const Vector<Scaler,3>& x)
+/// <summary>
+/// Decompose angle axis vector to normlized axis direction with a real number angle in [rad.]
+/// <para>
+/// ½«Öá½Ç±íÊ¾ÏòÁ¿½âñîÎªÕıÔò»¯µÄÖáÏòÁ¿ÓëÒÔÊµÊı±íÊ¾µÄ»¡¶È½Ç
+/// </para>
+/// </summary>
+/// <param name="vec">	cref	{vec3}		[in]	an 3 x 1 Vector							3 x 1 ÏòÁ¿			</param>
+/// <returns>			val		{vec3, R}	[out]	norm angle dir and real number angle	ÕıÔò»¯ÖáÏòÓëÊµÊı½Ç	</returns>
+template<Vec3Convertible Derived>
+inline 
+pair<Eigen::Vector3<typename Derived::Scalar>, typename Derived::Scalar> 
+GetRotateAxisAngle(const Eigen::MatrixBase<Derived>& vec)
 {
-		
-	Matrix<Scaler, 3, 3> mat;
-	mat.setZero();
-	mat(0, 1) = -x[2];
-	mat(0, 2) = x[1];
-	mat(1, 0) = x[2];
-	mat(1, 2) = -x[0];
-	mat(2, 0) = -x[1];
-	mat(2, 1) = x[0];
+	return std::make_pair(vec.normalized(), vec.norm());
+}
+
+/// <summary>
+/// Hat operator on so3 to convert element to 3 x 3 skew-symmatrix from 3 x 1 vector
+/// <para>
+/// Hat Ëã×Ó½« so3 ´Ó 3 x 1 ÏòÁ¿±íÊö×ª»»µ½ 3 x 3 ·´¶Ô³Æ¾ØÕó±íÊö
+/// </para>
+/// </summary>
+/// <param name="vec">	cref	{so3}	[in]	an so3 vector form			3 x 1 Öá½Ç±íÊö			</param>
+/// <returns>			val		{[so3]}	[out]	an skew-symmatrix matrix	3 x 3 ·´¶Ô³Æ¾ØÕó		</returns>
+template<Vec3Convertible Derived>
+auto Hat(const Eigen::MatrixBase<Derived>& vec)
+{
+	assert(vec.cols() == 1 && vec.rows() == 3 && 
+		   "Hat operator: R^3 -> [so3], only support 3 x 1 vector, the size not matching");
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	Mat3 mat  = Mat3::Zero();
+	mat(0, 1) = -vec[2]; 
+	mat(0, 2) = vec[1];
+	mat(1, 0) = vec[2];
+	mat(1, 2) = -vec[0];
+	mat(2, 0) = -vec[1];
+	mat(2, 1) = vec[0];
 	return mat;
 }
 
-template<class Scaler>
-inline Vector<Scaler, 3> CrossVec3(const Matrix<Scaler, 3, 3>& skew_sym_mat)
+/// <summary>
+/// Vee operator on so3 to convert element to 3 x 1 vector from 3 x 3 skew-symmatrix 
+/// <para>
+/// Vee Ëã×Ó½« so3 ´Ó 3 x 3 ·´¶Ô³Æ¾ØÕó±íÊö×ª»»µ½ 3 x 1 ÏòÁ¿±íÊö
+/// </para>
+/// </summary>
+/// <param name="skew_sym_mat">	cref	{[so3]}	[in]	an skew-symmatrix matrix	3 x 3 ·´¶Ô³Æ¾ØÕó	</param>
+/// <returns>					val		{so3}	[out]	so3 element vector form		3 x 1 Öá½Ç±íÊö		</returns>
+template<Mat3Convertible Derived>
+inline Eigen::Vector3<typename Derived::Scalar> 
+Vee(const Eigen::MatrixBase<Derived>& skew_sym_mat)
 {
-    return Vector<Scaler, 3>(
-		skew_sym_mat(2, 1), 
-		skew_sym_mat(0, 2), 
-		skew_sym_mat(1, 0));
+    return Eigen::Vector3<typename Derived::Scalar>(skew_sym_mat(2, 1), skew_sym_mat(0, 2), skew_sym_mat(1, 0));
 }
 
-template<class Scaler>
-inline Matrix<Scaler, 3, 3> Roderigues(const Matrix<Scaler, 3, 3>& cross_m, Scaler theta)
+/// <summary>
+/// Using Roderigues formula to get SO3 element from [so3] axis and real number angle in [rad.]
+/// <para>
+/// Ê¹ÓÃ Roderigues ¹«Ê½´Ó·´¶Ô³Æ¾ØÕó×ªÖáºÍÊµÊı»¡¶È×ª½Ç»ñÈ¡¶ÔÓ¦Ğı×ª¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="skew_sym_m">	cref	{[so3]}	[in]	an skew-symmatrix matrix	3x3 ·´¶Ô³Æ¾ØÕó	</param>
+/// <param name="theta">		val		{R}		[in]	a real number angle [rad.]	ÊµÊı»¡¶È½Ç		</param>
+/// <returns>					val		{SO3}	[out]	rotation matrix				Ğı×ª¾ØÕó		</returns>
+template<Mat3Convertible Derived, ScalarEquivalence<Derived> U>
+inline Eigen::Matrix3<typename Derived::Scalar> 
+Roderigues(const Eigen::MatrixBase<Derived>& skew_sym_m, U theta)
 {
-	return Matrix<Scaler, 3, 3>(
-		Matrix<Scaler, 3, 3>::Identity() +
-		sin(theta) * cross_m + 
-		(1 - cos(theta)) * (cross_m * cross_m));
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+	return Mat3::Identity() + sin(theta) * skew_sym_m + (1 - cos(theta)) * (skew_sym_m * skew_sym_m);
 }
 
-template<class Scaler>
-inline Matrix<Scaler, 3, 3> Roderigues(const Vector<Scaler, 3>& axis_, Scaler _theta)
+/// <summary>
+/// Using Roderigues formula to get SO3 element from so3 axis and real number angle in [rad.]
+/// <para>
+/// Ê¹ÓÃ Roderigues ¹«Ê½´Ó×ªÖáÏòÁ¿ºÍÊµÊı»¡¶È×ª½Ç»ñÈ¡¶ÔÓ¦Ğı×ª¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="axis">			cref	{so3}	[in]	an 3 x 1 vector				3 x 1 ×ªÖáÏòÁ¿	</param>
+/// <param name="theta">		val		{R}		[in]	a real number angle [rad.]	ÊµÊı»¡¶È½Ç		</param>
+/// <returns>					val		{SO3}	[out]	rotation matrix				Ğı×ª¾ØÕó		</returns>
+template<Vec3Convertible Derived, ScalarEquivalence<Derived> U>
+inline auto Roderigues(const Eigen::MatrixBase<Derived>& axis, U theta)
 {
-	return Roderigues(CrossMatrix(axis_.normalized()), _theta);
+	return Roderigues(Hat(axis.normalized()), theta);
 }
 
-template<class Scaler>
-inline Matrix<Scaler, 3, 3> Roderigues(const Vector<Scaler, 3>& v)
+/// <summary>
+/// Using Roderigues formula to get SO3 matrix from so3 axis angle vector with unit [rad.]
+/// <para>
+/// Ê¹ÓÃ Roderigues ¹«Ê½´ÓÖá½ÇÏòÁ¿»ñÈ¡¶ÔÓ¦Ğı×ª¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="v">	cref	{so3}	[in]	3 x 1 axis angle vecotr in [rad.]	3 x 1 Öá½ÇÏòÁ¿	</param>
+/// <returns>			val		{SO3}	[out]	3 x 3 rotate matrix					3 x 3 Ğı×ª¾ØÕó	</returns>
+template<Vec3Convertible Derived>
+inline auto Roderigues(const Eigen::MatrixBase<Derived>& v)
 {
-	return Roderigues(CrossMatrix(v.normalized()), v.norm());
+	return Roderigues(Hat(v.normalized()), v.norm());
 }
 
-template<class _Scaler>
-inline Matrix<_Scaler, 3, 3> DiffRoderigues(const Matrix<_Scaler, 3, 3>& _cross_m, _Scaler _theta)
+/// <summary>
+/// Using Roderigues formula's diiferential formula to get matrix from so3 axis angle vector with unit [rad.]
+/// <para>
+/// ¸ù¾İ Roderigues ¹«Ê½´ÓÖá½ÇÏòÁ¿»ñÈ¡¶ÔÓ¦µÄÎ¢·ÖĞı×ª¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="skew_sym_m">	cref	{[so3]}		[in]	3 x 3 skew symmetric matrix		3 x 3 Öá½Ç¾ØÕó		</param>
+/// <param name="theta">		val		{R}			[in]	a real number angle in [rad.]	ÊµÊı»¡¶È½Ç			</param>
+/// <returns>					val		{R^3 x 3}	[out]	3 x 3 differential matrix		3 x 3 Ğı×ª¾ØÕóÎ¢·Ö	</returns>
+template<Mat3Convertible Derived, ScalarEquivalence<Derived> U>
+inline Eigen::Matrix3<typename Derived::Scalar> 
+DiffRoderigues(const Eigen::MatrixBase<Derived>& skew_sym_m, U theta)
 {
-    return  Matrix<_Scaler, 3, 3>(
-		Matrix<_Scaler, 3, 3>::Identity() +
-        cos(_theta) * _cross_m +
-        (1 + sin(_theta)) * (_cross_m * _cross_m));
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+    return  Mat3::Identity() + cos(theta) * skew_sym_m + (1 + sin(theta)) * (skew_sym_m * skew_sym_m);
 }
 
-template<class _Scaler>
-Vector<_Scaler, 3> LogMapSO3Toso3(const Matrix<_Scaler, 3, 3>& mat)
+/// <summary>
+/// Logrithimic map : get a so3 vector from a SO3 rotation matrix
+/// <para>
+/// Ê¹ÓÃ¶ÔÊıÓ³Éä´ÓĞı×ª¾ØÕó»ñÈ¡¶ÔÓ¦µÄÖá½ÇÏòÁ¿
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SO3}	[in]	3 x 3 rotation matrix			3 x 3 Ğı×ª¾ØÕó		</param>
+/// <returns>			val		{so3}	[out]	3 x 1 angle axis vector	[rad.]	3 x 1 »¡¶ÈÖá½ÇÏòÁ¿	</returns>
+template<Mat3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar> 
+LogMapSO3Toso3(const Eigen::MatrixBase<Derived>& mat)
 {	
-	_Scaler cos_val = (mat.trace() - 1.) * 0.5;
-	if (cos_val > 1.0)  cos_val = 1.0;
-	if (cos_val < -1.0) cos_val = -1.0;
+	assert(mat.rows() == 3 && mat.cols() == 3 && "logrithimic: SO3 -> so3 , size not matching");
+	using Scalar = typename Derived::Scalar;
+	using Vec3	 = Eigen::Vector3<Scalar>;
 
-	_Scaler theta = acos(cos_val);
-		
-	if (theta < 1e-5)
-        return Vector<_Scaler, 3>::Zero();
-		
-	if ((EIGEN_PI - theta) < 1e-5)
-		return 
-		EIGEN_PI 
-		* (1 / sqrt(2 * (1 + mat(2, 2)))) 
-        * Vector<_Scaler, 3>(mat(0, 2), mat(1, 2), 1 + mat(2, 2));
-		
-	Vector<_Scaler, 3> vec = CrossVec3(
-		static_cast<Matrix<_Scaler,3, 3>>((mat - mat.transpose()) / (2. * sin(theta))));
-	return (theta * vec);
+	// Clamp cos_val back to [-1.0, 1.0] in avoiding numerical error
+	Scalar cos_val = std::max(
+					 std::min(0.5 * (mat.trace() - 1.), 1.0), -1.0);
+	Scalar theta  = acos(cos_val);
+	
+	// check whther theta near zero or pi
+	if (abs(theta) < 1e-5) return Vec3::Zero();
+	if (abs(EIGEN_PI - theta) < 1e-5) {
+		// TODO: consider mat(2, 2) == -1 and deal with it
+		return EIGEN_PI * (1 / sqrt(2 * (1 + mat(2, 2)))) * Vec3(mat(0, 2), mat(1, 2), 1 + mat(2, 2));
+	}
+	
+	// normal situation
+	return theta * Vee(mat - mat.transpose()) / (2. * sin(theta));
 }
 
-template<class _Scaler>
-inline SE3<_Scaler> InverseSE3(const SE3<_Scaler>& mat)
+/// <summary>
+/// get inverse of SE3 homogeneous transform matrix
+/// <para>
+/// »ñÈ¡Æë´Î±ä»»¾ØÕóµÄÄæ
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SE3}	[in]	4 x 4 homogeneous transform matrix		4 x 4 Æë´Î±ä»»¾ØÕó	</param>
+/// <returns>			val		{SE3}	[out]	inverse of 4 x 4 input matrix			4 x 4 ÊäÈë¾ØÕóµÄÄæ	</returns>
+template<Mat4Convertible Derived>
+auto InverseSE3(const Eigen::MatrixBase<Derived>& mat)
 {
-	SE3<_Scaler> _inv_mat = SE3<_Scaler>::Identity();
+	using SE3	 = Eigen::Matrix4<typename Derived::Scalar>;
+	SE3 _inv_mat = SE3::Identity();
 	
 	_inv_mat.block(0, 0, 3, 3) = mat.block(0, 0, 3, 3).transpose();
 	_inv_mat.block(0, 3, 3, 1) = -_inv_mat.block(0, 0, 3, 3) * mat.block(0, 3, 3, 1);
+
 	return _inv_mat;
 }
 
-template<class _Scaler>
-pair<Twist<_Scaler>, _Scaler> GetTwistAxisAngle(const Twist<_Scaler>& _t)
+/// <summary>
+/// Decompose a twist into axis and angle components
+/// <para>
+/// ½«Ò»¸öĞıÁ¿½âñîÎªÖá½Ç·ÖÁ¿µÄĞÎÊ½
+/// </para>
+/// </summary>
+/// <param name="t">	cref	{twist}		[in]	6 x 1 twist vector								6 x 1 ĞıÁ¿					</param>
+/// <returns>			val		{twist, R}	[out]	normalized twist direction with angle in [rad.] ÕıÔò»¯ĞıÁ¿ÖáÏòÓëÊµÊı»¡¶È½Ç	</returns>
+template<Vec6Convertible Derived>
+pair<Twist<typename Derived::Scalar>, typename Derived::Scalar> 
+GetTwistAxisAngle(const Eigen::MatrixBase<Derived>& t)
 {
-    const Vector<_Scaler, 3>& w = _t.block(0, 0, 3, 1);
-    const Vector<_Scaler, 3>& v = _t.block(3, 0, 3, 1);
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+	
+	Twist	xi		= t;
+    Vec3	w		= t.block(0, 0, 3, 1), 
+			v		= t.block(3, 0, 3, 1);
 
-	_Scaler _theta = w.norm();
-	if (_theta < 1e-5) _theta = v.norm();
+	// caculator theta and check whether not contain rotate or close to zero
+	Scalar	theta	= w.norm();
+	if (abs(theta) < 1e-5) theta	= v.norm();
+	if (abs(theta) > 1e-5) xi		/= theta;
 
-	return std::make_pair(_theta < 1e-5?_t:_t / _theta, _theta);
+	return std::make_pair(xi, theta);
 }
 
-template<class _Scaler>
-SE3<_Scaler> ExpMapping(const Twist<_Scaler>& _norm_t, _Scaler _theta)
+/// <summary>
+/// Exponential map : get a SE3 homogeneous transform matrix form a se3 vector with angle
+/// <para>
+/// Ö¸ÊıÓ³Éä : ´ÓÒ»¸ö se3 ÏòÁ¿Óë»¡¶È½Ç»ñÈ¡ SE3 Æë´Î±ä»»¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="norm_t">	cref	{se3}	[in]	normalized 6 x 1 twist vector		ÕıÔò»¯µÄ 6 x 1 ÏòÁ¿	</param>
+/// <param name="theta">	val		{R}		[in]	the real number angle in [rad.]		»¡¶ÈÊµÊı½Ç			</param>
+/// <returns>				val		{SE3}	[out]	4 x 4 homogeneous transform matrix	4 x 4 Æë´Î±ä»»¾ØÕó	</returns>
+template<Vec6Convertible Derived, ScalarEquivalence<Derived> U>
+auto ExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
 {
-    const Vector<_Scaler, 3>& w = _norm_t.block(0, 0, 3, 1);
-    const Vector<_Scaler, 3>& v = _norm_t.block(3, 0, 3, 1);
+	using Scalar = typename Derived::Scalar;
+	using Vec3	 = Eigen::Vector3<Scalar>;
+	using Mat3   = Eigen::Matrix3<Scalar>;
+	using SE3	 = Eigen::Matrix4<Scalar>;
 
-	SE3<_Scaler> mat		= SE3<_Scaler>::Identity();
-	Matrix<_Scaler, 3, 3> _cross_axis	
-							= CrossMatrix(w.normalized());
-	mat.block(0, 0, 3, 3)   = Roderigues(_cross_axis, _theta);
+    Vec3	w				= norm_t.block(0, 0, 3, 1), 
+			v				= norm_t.block(3, 0, 3, 1);
+	SE3		mat				= SE3::Identity();
 
-	Matrix<_Scaler, 3, 3> 
-		G = 
-		_theta * Matrix<_Scaler, 3, 3>::Identity()
-		+ (1 - cos(_theta)) * _cross_axis
-		+ (_theta - sin(_theta)) * _cross_axis * _cross_axis;
+	// Get the rotation SO3 part
+	Mat3	skew_sym_m		= Hat(w.normalized());
+	mat.block(0, 0, 3, 3)	= Roderigues(skew_sym_m, theta);
+
+	// Get the translation T3 part
+	Mat3	G = theta * Mat3::Identity() + (1 - cos(theta)) * skew_sym_m + 
+				(theta - sin(theta)) * skew_sym_m * skew_sym_m;
 	mat.block(0, 3, 3, 1) = G * v;
-
 	return mat;
 }
 
-template<class _Scaler>
-inline SE3<_Scaler> ExpMapping(const Twist<_Scaler> & _t)
+/// <summary>
+/// Exponential map : get a SE3 homogeneous transform matrix form a se3 vector
+/// <para>
+/// Ö¸ÊıÓ³Éä : ´ÓÒ»¸ö se3 ÏòÁ¿»ñÈ¡ SE3 Æë´Î±ä»»¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="t">	cref	{se3}	[in]	6 x 1 twist vector in [rad.]		»¡¶ÈÖÆ 6 x 1 ĞıÁ¿	</param>
+/// <returns>			val		{SE3}	[out]	4 x 4 homogeneous transform matrix	4 x 4 Æë´Î±ä»»¾ØÕó	</returns>
+template<Vec6Convertible Derived>
+inline auto ExpMapping(const Eigen::MatrixBase<Derived> & t)
 {
-	auto && [S, _theta] = GetTwistAxisAngle(_t);
-	return ExpMapping(S, _theta);
+	auto && [xi, theta] = GetTwistAxisAngle(t);
+	return ExpMapping(xi, theta);
 }
 
-template<class _Scaler>
-SE3<_Scaler> DiffExpMapping(const Twist<_Scaler>& _norm_t, _Scaler _theta)
+/// <summary>
+/// Differential Exponential map: get a differential theta transform matrix from se3 vector and real number anlge [rad.]
+/// <para>
+/// Î¢·ÖÖ¸ÊıÓ³Éä : »ñÈ¡Æë´Î±ä»»¾ØÕó¶ÔÓÚ½Ç¶ÈµÄÎ¢·Ö
+/// </para>
+/// </summary>
+/// <param name="norm_t">	cref	{se3}		[in]	normalized 6 x 1 twist vector		ÕıÔò»¯µÄ 6 x 1 ÏòÁ¿	</param>
+/// <param name="theta">	val		{R}			[in]	the real number angle in [rad.]		»¡¶ÈÊµÊı½Ç			</param>
+/// <returns>				val		{R^3 x 3}	[out]	the differential matrix				Î¢·Ö¾ØÕó			</returns>
+template<Vec6Convertible Derived, ScalarEquivalence<Derived> U>
+SE3<typename Derived::Scalar> 
+DiffExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
 {
-    const Vector<_Scaler, 3>& w = _norm_t.block(0, 0, 3, 1);
-    const Vector<_Scaler, 3>& v = _norm_t.block(3, 0, 3, 1);
+	using Scalar = typename Derived::Scalar;
+	using Vec3	 = Eigen::Vector3<Scalar>;
+	using Mat3   = Eigen::Matrix3<Scalar>;
+	using SE3    = Eigen::Matrix4<Scalar>;
 
-    SE3<_Scaler> mat = SE3<_Scaler>::Identity();
-    Matrix<_Scaler, 3, 3> _cross_axis = CrossMatrix(w.normalized());
-    mat.block(0, 0, 3, 3) = DiffRoderigues(_cross_axis, _theta);
+    Vec3	w				= norm_t.block(0, 0, 3, 1), 
+			v				= norm_t.block(3, 0, 3, 1);
+    SE3		mat				= SE3::Identity();
 
-	Matrix<_Scaler, 3, 3> 
-		G =
-		Matrix<_Scaler, 3, 3>::Identity()
-        + (1 + sin(_theta)) * _cross_axis
-        + (1 - cos(_theta)) * _cross_axis * _cross_axis;
+	// Get rotation part in differential form
+    Mat3	skew_sym_m		= Hat(w.normalized());
+    mat.block(0, 0, 3, 3)	= DiffRoderigues(skew_sym_m, theta);
+
+	// Get translation part in differential form
+	Mat3	G				= Mat3::Identity() + (1 + sin(theta)) * skew_sym_m + 
+							  (1 - cos(theta)) * skew_sym_m * skew_sym_m;
     mat.block(0, 3, 3, 1) = G * v;
 
     return mat;
 }
 
-template<class _Scaler>
-inline Twist<_Scaler> ScrewToTwist(const Vector<_Scaler, 3> & q, const Vector<_Scaler, 3>& w, _Scaler h = 0.0)
+/// <summary>
+/// get the twist vector from screw q, w and h components
+/// <para>
+/// ´ÓÂİĞıÖáÎ»ÖÃ¡¢ÖáÏòÓë½Ú¾à·ÖÁ¿ÖĞ»ñÈ¡ĞıÁ¿
+/// </para>
+/// </summary>
+/// <param name="q">	cref	{R^3}	[in]	screw axis position		ÂİĞıÖáÉÏÒ»µãÎ»ÖÃ	</param>
+/// <param name="w">	cref	{R^3}	[in]	screw axis direction	ÂİĞıÖá·½Ïò			</param>
+/// <param name="h">	val		{R}		[in]	screw pitch				½Ú¾à				</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector		6 x 1 ĞıÁ¿ÏòÁ¿		</returns>
+template<Vec3Convertible Derived, ScalarEquivalence<Derived> U>
+auto ScrewToTwist(const Eigen::MatrixBase<Derived> & q, const Eigen::MatrixBase<Derived>& w, U h)
 {
-	Twist<_Scaler> _normal_twist	= Twist<_Scaler>::Zero();
-	_normal_twist.block(0, 0, 3, 1) = w.normalized();
-	_normal_twist.block(3, 0, 3, 1) = q.cross(w) + h * w.normalized();
-	return _normal_twist;
+	using Twist = Eigen::Vector<typename Derived::Scalar, 6>;
+	Twist xi			 = Twist::Zero();
+	xi.block(0, 0, 3, 1) = w.normalized();
+	xi.block(3, 0, 3, 1) = q.cross(w) + h * w.normalized();
+	return xi;
 }
 
-template<class _Scaler>
-Twist<_Scaler> LogMapSE3Tose3(const SE3<_Scaler>& _T)
+/// <summary>
+/// get the twist vector from screw q and w components without h(.equal h = 0)
+/// <para>
+/// ´ÓÂİĞıÖáÎ»ÖÃ¡¢ÖáÏòÖĞ»ñÈ¡ĞıÁ¿£¬µÈ¼ÛÓÚ½Ú¾àÎª 0 µÄÇé¿ö
+/// </para>
+/// </summary>
+/// <param name="q">	cref	{R^3}	[in]	screw axis position		ÂİĞıÖáÉÏÒ»µãÎ»ÖÃ	</param>
+/// <param name="w">	cref	{R^3}	[in]	screw axis direction	ÂİĞıÖá·½Ïò			</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector		6 x 1 ĞıÁ¿ÏòÁ¿		</returns>
+template<Vec3Convertible Derived>
+auto ScrewToTwist(const Eigen::MatrixBase<Derived>& q, const Eigen::MatrixBase<Derived>& w)
 {
-	const Matrix<_Scaler, 3, 3>& R = _T.block(0, 0, 3, 3);
-    const Vector<_Scaler, 3>   & p = _T.block(0, 3, 3, 1);
-	
-	Vector<_Scaler, 3> w = LogMapSO3Toso3(R);
-	auto&& [axis, theta] = GetRotateAxisAngle(w);
-	Matrix<_Scaler, 3, 3> _cross_axis = CrossMatrix(axis);
-	
-	Matrix<_Scaler, 3, 3>
-		G_Inv = 
-		1. / theta * Matrix<_Scaler, 3, 3>::Identity()
-		- 0.5 * _cross_axis
-		+ (1. / theta - 0.5 / tan(0.5 * theta)) * _cross_axis * _cross_axis;
-	if (abs(theta) < 1e-5)
-		G_Inv = Matrix<_Scaler, 3, 3> ::Identity();
-	else
-		G_Inv *= theta;
-	Vector<_Scaler, 3> v = G_Inv * p;
-
-	Twist<_Scaler> t = Twist<_Scaler>::Zero();
-	t.block(0, 0, 3, 1) = w;
-	t.block(3, 0, 3, 1) = v;
-
-	return t;
+	using Twist = Eigen::Vector<typename Derived::Scalar, 6>;
+	Twist xi			 = Twist::Zero();
+	xi.block(0, 0, 3, 1) = w.normalized();
+	xi.block(3, 0, 3, 1) = q.cross(w);
+	return xi;
 }
 
-template<class _Scaler>
-AdMatrix<_Scaler> Adjoint(const SE3<_Scaler> & T)
+/// <summary>
+/// Logrithimic map : get a se3 twist from a SE3 homogeneous transform matrix
+/// <para>
+/// Ê¹ÓÃ¶ÔÊıÓ³Éä´ÓÆë´Î±ä»»¾ØÕó»ñÈ¡¶ÔÓ¦µÄĞıÁ¿
+/// </summary>
+/// <param name="T">	cref	{SE3}	[in]	4 x 4 homogeneous transform matrix	Æë´Î±ä»»¾ØÕó	</param>
+/// <returns>			val		{se3}	[out]	6 x 1 twist vector					6 x 1 ĞıÁ¿		</returns>
+template<Mat4Convertible Derived>
+auto LogMapSE3Tose3(const Eigen::MatrixBase<Derived>& T)
 {
-	const Matrix<_Scaler, 3, 3>& R = T.block(0, 0, 3, 3);
-	const Matrix<_Scaler, 3, 3> _cross_p = CrossMatrix(
-		static_cast<Vector<_Scaler, 3>>(T.block(0, 3, 3, 1)));
+	assert(T.rows() == 4 && T.cols() == 4 && "logrithmic: SE3 -> se3, matrix size not matching");
+	using Scalar = typename Derived::Scalar;
+	using Vec3	 = Eigen::Vector3<Scalar>;
+	using Mat3   = Eigen::Matrix3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
 
-	AdMatrix<_Scaler> adMat = AdMatrix<_Scaler>::Zero();
-	adMat.block(0, 0, 3, 3) =
-	adMat.block(3, 3, 3, 3) = R;
-	adMat.block(3, 0, 3, 3) = _cross_p * R;
+    Vec3	t				= T.block(0, 3, 3, 1),	 
+			w				= LogMapSO3Toso3(T.block(0, 0, 3, 3));
+	auto&& [axis, theta]	= GetRotateAxisAngle(w);
+	Mat3	skew_sym_m		= Hat(axis);
+	
+	Scalar	cot_half_theta	= abs(theta) < 1e-4 ? 1.0 : 0.5 * theta / tan(0.5 * theta);
+	Mat3	G_Inv			= Mat3::Identity() - 0.5 * theta * skew_sym_m +
+							  (1 - cot_half_theta) * skew_sym_m * skew_sym_m;
+	Vec3	v				= G_Inv * t;
+
+	Twist	xi				= Twist::Zero();
+	xi.block(0, 0, 3, 1)	= w;
+	xi.block(3, 0, 3, 1)	= v;
+
+	return xi;
+}
+
+/// <summary>
+/// Adjoint map : get R^6 x 6 adjoint matrix from SE3 4 x 4 homogeneous transform matrix
+/// <para>
+/// °éËæ±ä»»£º´Ó 4 x 4 Æë´Î±ä»»¾ØÕó»ñÈ¡¶ÔÓ¦µÄ 6 x 6 °éËæ¾ØÕó
+/// </para>
+/// </summary>
+/// <param name="T">	cref	{SE3}		[in]	4 x 4 homogeneous transform matrix	Æë´Î±ä»»¾ØÕó	</param>
+/// <returns>			val		{R^6 x 6}	[out]	6 x 6 adjoint matrix				°éËæ±ä»»¾ØÕó	</returns>
+template<Mat4Convertible Derived>
+AdMatrix<typename Derived::Scalar> Adjoint(const Eigen::MatrixBase<Derived> & T)
+{
+	assert(T.rows() == 4 && T.cols() == 4 && "adjoint: SE3 -> adjSE3, matrix size not matching");
+	using Scalar = typename Derived::Scalar;
+	using Vec3	 = Eigen::Vector3<Scalar>;
+	using Mat3	 = Eigen::Matrix3<Scalar>;
+	using AdjMat = Eigen::Matrix<Scalar, 6, 6>;
+
+	Mat3	R				= T.block(0, 0, 3, 3);
+	Mat3	skew_sym_p		= Hat(static_cast<Vec3>(T.block(0, 3, 3, 1)));
+	AdjMat	adMat			= AdjMat::Zero();
+
+	adMat.block(0, 0, 3, 3) = adMat.block(3, 3, 3, 3) 
+							= R;
+	adMat.block(3, 0, 3, 3) = skew_sym_p * R;
 		
 	return adMat;
 }
 
 /// <summary>
-/// Decomposing a 3 x 3 matrix into two 3 x 3 matrices of orthogonal matrix Q and upper triangular matrix R
-/// <para>å°†ä¸€ä¸ªå¯é€† 3 x 3 å®çŸ©é˜µåˆ†è§£ä¸º Q R ä¸¤ä¸ªçŸ©é˜µï¼Œå…¶ä¸­ Q ä¸ºå•ä½æ­£äº¤é˜µï¼Œ R ä¸ºä¸Šä¸‰è§’çŸ©é˜µ </para>
+/// Decomposing 3 x 3 matrix into two 3 x 3 matrices of orthogonal matrix Q and upper triangular matrix R using Schmidt Orthogonalization
+/// <para>
+/// Ê¹ÓÃ Schmidt Õı½»»¯½âñîÒ»¸ö¿ÉÄæ 3 x 3 Êµ¾ØÕóÎª Q R Á½¸ö¾ØÕó£¬ÆäÖĞ Q Îªµ¥Î»Õı½»Õó£¬ R ÎªÉÏÈı½Ç¾ØÕó 
+/// </para>
 /// </summary>
-/// <typeparam name="_Scaler"></typeparam>
-/// <param name="r_mat"></param>
-/// <returns></returns>
-template<class _Scaler>
-pair<SO3<_Scaler>, Matrix<_Scaler, 3, 3>> QRDecompositionMat3(const Matrix<_Scaler, 3, 3>& mat)
+/// <param name="mat">	cref	{R^3x3}			[in]	3 x 3 real number matrix				3 x 3 Êµ¾ØÕó				</param>
+/// <returns>			val		{SO3, R^3x3}	[out]	rotate matrix and upper triangle matrix Ğı×ªÕı½»¾ØÕóÓëÉÏÈı½Ç¾ØÕó	</returns>
+template<Mat3Convertible Derived>
+pair<SO3<typename Derived::Scalar>, Eigen::Matrix3<typename Derived::Scalar>> 
+QRDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
 {
-	auto GetInv = [](_Scaler val)->_Scaler {
-		return abs(val) > std::numeric_limits<_Scaler>::epsilon() ? 1.0 / val : 0.0;
+	using Scalar = typename Derived::Scalar;
+	using Vec3 = Eigen::Vector3<Scalar>;
+	using Mat3 = Eigen::Matrix3<Scalar>;
+
+	auto GetInv = [](auto val)->Scalar {
+		return abs(val) > std::numeric_limits<Scalar>::epsilon() ? 1.0 / val : 0.0;
 	};
-	Vector<_Scaler, 3>
-		m_cow_1 = mat.block(0, 0, 3, 1),
-		m_cow_2 = mat.block(0, 1, 3, 1),
-		m_cow_3 = mat.block(0, 2, 3, 1);
+	Vec3		m_cow_1		= mat.block(0, 0, 3, 1),
+				m_cow_2		= mat.block(0, 1, 3, 1),
+				m_cow_3		= mat.block(0, 2, 3, 1);
 	
 	// Step1: Schmidt Orthogonalization get Q Matrix
-	Vector<_Scaler, 3> Q_cow_1, Q_cow_2, Q_cow_3;
-	_Scaler inv_length = 0.0;
+	Vec3		Q_cow_1, Q_cow_2, Q_cow_3;
+	Scalar		inv_length	= 0.0;
 
-	inv_length = GetInv(m_cow_1.norm());
-	Q_cow_1 = m_cow_1 * inv_length;
+	inv_length			= GetInv(m_cow_1.norm());
+	Q_cow_1				= m_cow_1 * inv_length;
 
-	Q_cow_2 = m_cow_2 - Q_cow_1.dot(m_cow_2) * Q_cow_1;
-	inv_length = GetInv(Q_cow_2.norm());
-	Q_cow_2 = Q_cow_2 * inv_length;
+	Q_cow_2				= m_cow_2 - Q_cow_1.dot(m_cow_2) * Q_cow_1;
+	inv_length			= GetInv(Q_cow_2.norm());
+	Q_cow_2				= Q_cow_2 * inv_length;
 
-	Q_cow_3 = m_cow_3 - Q_cow_1.dot(m_cow_3) * Q_cow_1 - Q_cow_2.dot(m_cow_3) * Q_cow_2;
-	inv_length = GetInv(Q_cow_3.norm());
-	Q_cow_3 = Q_cow_3 * inv_length;
+	Q_cow_3				= m_cow_3 - Q_cow_1.dot(m_cow_3) * Q_cow_1 - Q_cow_2.dot(m_cow_3) * Q_cow_2;
+	inv_length			= GetInv(Q_cow_3.norm());
+	Q_cow_3				= Q_cow_3 * inv_length;
 
-	SO3<_Scaler>		Q;
+	SO3<Scalar>	Q;
 	Q.block(0, 0, 3, 1) = Q_cow_1;
 	Q.block(0, 1, 3, 1) = Q_cow_2;
 	Q.block(0, 2, 3, 1) = Q_cow_3;
-
 	if (Q.determinant() < 0.0) Q = -Q;
 
 	// Step2: Get R use R = Q^t * M
-	Matrix<_Scaler, 3, 3> R = Q.transpose() * mat;
+	Mat3		R		= Q.transpose() * mat;
 
 	return { Q, R };
 }
 
 /// <summary>
-/// Decoposing a 3 x 3 upper triangular Matrix into two 3 x 1 vectors of scale and shear 
-/// <para>åˆ†è§£ 3 x 3 ä¸Šä¸‰è§’å®çŸ©é˜µä¸º ç¼©æ”¾ å’Œ å‰ªåˆ‡ ä¸¤ä¸ª 3 x 1 å‘é‡ </para>
+/// Decompose a 3 x 3 upper triangular Matrix into two 3 x 1 vectors of scale and shear 
+/// <para>
+/// ½âñî 3 x 3 ÉÏÈı½ÇÊµ¾ØÕóÎªÁ½¸ö 3 x 1 ÏòÁ¿£ºËõ·ÅºÍ¼ôÇĞ 
+/// </para>
 /// </summary>
-/// <typeparam name="_Scaler">{float/double} precision</typeparam>
-/// <param name="ut_mat"> ã€€
-/// <para>ã€€ã€€{const ref Matrix3} </para>
-/// <para>ã€€ã€€upper triangular Matrix ä¸Šä¸‰è§’å®çŸ©é˜µ</para>
-/// </param>
-/// <returns></returns>
-template<class _Scaler>
-inline pair<Vector<_Scaler, 3>, Vector<_Scaler, 3>> SSDecompositionMat3(const Matrix<_Scaler, 3, 3>& ut_mat) 
+/// <param name="ut_mat">	cref	{R^3x3}		[in]	3 x 3 upper triangle matrix				3 x 3 ÉÏÈı½Ç¾ØÕó	</param>
+/// <returns>				val		{R^3, R^3}	[out]	pair of 3 x 1 vectors: scale and shear	Ëõ·ÅÓë¼ôÇĞÏòÁ¿		</returns>
+template<Mat3Convertible Derived>
+pair<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
+SSDecompositionMat3(const Eigen::MatrixBase<Derived>& ut_mat)
 {	
-	return  {Vector<_Scaler, 3>(ut_mat(0, 0),					// scale
-								ut_mat(1, 1),
-								ut_mat(2, 2)),
-			 Vector<_Scaler, 3>(ut_mat(0, 1) / ut_mat(0, 0),	// shear
-								ut_mat(0, 2) / ut_mat(0, 0),
-								ut_mat(1, 2) / ut_mat(1, 1))};	
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+	/*		 x,								   y,							z								*/	
+	return  {Vec3(ut_mat(0, 0),				   ut_mat(1, 1),				ut_mat(2, 2)),					// scale vector
+			 Vec3(ut_mat(0, 1) / ut_mat(0, 0), ut_mat(0, 2) / ut_mat(0, 0), ut_mat(1, 2) / ut_mat(1, 1))};	// shear vector
 }
 
-template<class _Scaler>
-tuple<SO3<_Scaler>, Vector<_Scaler, 3>, Vector<_Scaler, 3>> RSSDecompositionMat3(const Matrix<_Scaler, 3, 3>& mat)
+/// <summary>
+/// Decompose a real number 3 x 3 matrix into Rotate matrix, scale vector and shear vector
+/// <para>
+/// ½âñî 3 x 3 Êµ¾ØÕóÎªÒ»¸öĞı×ª¾ØÕó£¬Ëõ·ÅÏòÁ¿Óë¼ôÇĞÏòÁ¿
+/// </para>
+/// </summary>
+/// <param name="mat">		cref	{R^3x3}			[in]	3 x 3 real number matrix			3 x 3 ÊµÊı¾ØÕó			</param>
+/// <returns>				val		{SO3, R^3, R^3}	[out]	tuple of rot, scale and shear		Ğı×ª¡¢Ëõ·ÅÓë¼ôÇĞÔª°û	</returns>
+template<Mat3Convertible Derived>
+tuple<SO3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
+RSSDecompositionMat3(const Eigen::MatrixBase<Derived>& mat)
 {
-	// Step1: get The QR Decomposition
-	auto [Q, R] = QRDecompositionMat3(mat);
-	
-	// Step2: Decompose R into scale and shear
+	// Step1: Decompose mat into Q and R matrices 
+	auto [Q, R]			= QRDecompositionMat3(mat);
+	// Step2: Decompose R into scale and shear vectors
 	auto [scale, shear] = SSDecompositionMat3(R);
 
-	//     Q âˆˆ SO(3)
 	return { Q, scale, shear};
 }
 
-template<class _Scaler>
-tuple<Vector<_Scaler, 3>, Vector<_Scaler, 3>, Vector<_Scaler, 3>, Vector<_Scaler, 3>> TRSSDecompositionMat4(const Matrix<_Scaler, 4, 4>& mat) {
-	auto [rot_mat, scale, shear] = RSSDecompositionMat3(static_cast<Matrix<_Scaler, 3, 3>>(mat.block(0, 0, 3, 3)));
-	return { static_cast<Vector<_Scaler, 3>>(mat.block(0, 3, 3, 1)),
-			 LogMapSO3Toso3(rot_mat),
-			 scale,
-			 shear};			
-}
-
-template<class _Scaler>
-pair<Matrix<_Scaler, 3, 3>, Vector<_Scaler, 3>> RtDecompositionMat4(const Matrix<_Scaler, 4, 4>& mat)
+/// <summary>
+/// Decompose 4 x 4(R^3x3 x t^3) affine transform matrix into R^3x3 matrix and t^3 vector
+/// <para> 
+/// ½« 4 x 4 ·ÂÉä±ä»»¾ØÕó½âñîÎª 3 x 3 ¾ØÕóÓë 3 x 1 ÏòÁ¿
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{R^4x4}			[in]	4 x 4 affine transform matrix	4 x 4 ·ÂÉä±ä»»¾ØÕó	</param>
+/// <returns>			val		{R^3x3, R^3}	[out]	pair of R matrix and t vecotr	R ¾ØÕóÓë t ÏòÁ¿¶Ô	</returns>
+template<Mat4Convertible Derived>
+pair<Eigen::Matrix3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
+RtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
 {
-	Matrix<_Scaler, 3, 3> rot_mat	= mat.block(0, 0, 3, 3);
-	Vector<_Scaler, 3>	  trans_vec = mat.block(0, 3, 3, 1);
-	return { rot_mat, trans_vec };
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+
+	Mat3	R	= mat.block(0, 0, 3, 3);
+	Vec3	t	= mat.block(0, 3, 3, 1);
+
+	return { R, t };
 }
 
-template<class _Scaler>
-pair<Vector<_Scaler, 3>, Vector<_Scaler, 3>> rtDecompositionMat4(const Matrix<_Scaler, 4, 4>& mat)
+/// <summary>
+/// Decompose 4 x 4 affine transform matrix into trans, rot, scale, shear components tuple
+/// <para>
+/// ½âñî 4 x 4 ·ÂÉä¾ØÕóÎª´ú±íÆ½ÒÆ¡¢Ğı×ª¡¢Ëõ·ÅÓë¼ôÇĞµÄ 3 x 1 ÏòÁ¿Ôª°û
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{R^4x4}			[in]	4 x 4 afiine transform matrix				4 x 4 ·ÂÉä±ä»»¾ØÕó	</param>
+/// <returns>			val		{R^3,...}_4		[out]	3 x 1 vector tuple[t, rot, scale, shear]	3 x 1 ÏòÁ¿Ôª°û		</returns>
+template<Mat4Convertible Derived>
+tuple<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>, 
+	  Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>>
+TRSSDecompositionMat4(const Eigen::MatrixBase<Derived>& mat) 
 {
-	Vector<_Scaler, 3>	  
-		trans_vec = mat.block(0, 3, 3, 1),
-		rot_vec   = LogMapSO3Toso3(static_cast<Matrix<_Scaler, 3, 3>>(mat.block(0, 0, 3, 3)));
-	return {rot_vec, trans_vec};
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+
+	auto [R, t]					 = RtDecompositionMat4(mat);
+	auto [rot_mat, scale, shear] = RSSDecompositionMat3(R);
+	return { t, LogMapSO3Toso3(rot_mat), scale, shear};			
+}
+
+/// <summary>
+/// Decompose 4 x 4 homogeneous transform matrix into 3 x 1 vectors of trans and rot
+/// <para>
+/// ½âñî 4 x 4 Æë´Î±ä»»¾ØÕóÎªÆ½ÒÆÓëĞı×ªÁ½¸ö 3 x 1 ÏòÁ¿
+/// </para>
+/// </summary>
+/// <param name="mat">	cref	{SE3}		[in]	4 x 4 homogeneous transform matrix		4 x 4 Æë´Î±ä»»¾ØÕó	</param>
+/// <returns>			val		{R^3, R^3}	[out]	3 x 1 vectors pair of trans and rot		3 x 1 ÏòÁ¿Ôª°û {Æ½ÒÆ, Ğı×ª}</returns>
+template<Mat4Convertible Derived>
+pair<Eigen::Vector3<typename Derived::Scalar>, Eigen::Vector3<typename Derived::Scalar>> 
+rtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
+{
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
+
+	Vec3	t	= mat.block(0, 3, 3, 1),
+			r	= LogMapSO3Toso3(mat.block(0, 0, 3, 3));
+	return {r, t};
 }
 
 }
+
+#endif	// _GTRANSFORM_HPP

@@ -6,7 +6,7 @@ class GPlane :
 {
 public:
     GPlane();
-    ~GPlane() { glDeleteVertexArrays(1, &ID); glDeleteBuffers(1, &VBO);}
+    ~GPlane() { glDeleteVertexArrays(1, &model_id_); glDeleteBuffers(1, &VBO);}
     void Draw(MyShader& shader, unsigned TexID) const {};
     void Draw(MyShader& shader) const noexcept override;
 private:

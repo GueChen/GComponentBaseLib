@@ -10,6 +10,9 @@
 
 #include <LSSolver/LinearSystemSolver.hpp>
 #include <GComponent/GTransform.hpp>
+#include <GComponent/GNumerical.hpp>
+#include <GComponent/GGeometry.hpp>
+#include <GComponent/heuristic_ik_solver.hpp>
 
 #include <Eigen/dense>
 #include <Eigen/Geometry>
@@ -66,9 +69,10 @@ enum class SolveResult {
 /// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			指数坐标				</param>
 /// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				指定角度值向量			</param>
 /// <returns>								{bool}		[out]	flag of solving result			求解结果标志			</returns>
-bool	  Transforms(vector<SE3<float>>&				out_transforms,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
+template<class _Scaler>
+bool	  Transforms(vector<SE3<_Scaler>>&					out_transforms,
+						   const vector<Twist<_Scaler>>&	expcoords,
+						   const DynVec<_Scaler>&			thetas);
 
 /// <summary>
 /// Solving the end effect Transform using Exponential Product under exponential coordinates with specific thetas
@@ -81,13 +85,15 @@ bool	  Transforms(vector<SE3<float>>&				out_transforms,
 /// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			指数坐标				</param>
 /// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				指定角度值向量			</param>
 /// <returns>								{bool}		[out]	flag of solving result			求解结果标志			</returns>
-bool	  ForwardKinematic(SE3<float>&					out_mat, 
-						   const SE3<float>&			zero_mat,
-						   const vector<Twist<float>>&	expcoords, 
-						   const DynVec<float>&			thetas);
-bool	  ForwardKinematic(SE3<float>&					out_mat,
-						   const SE3<float>&			ini_mat,
-						   const vector<SE3<float>>&	adj_matrices);
+template<class _Scaler>
+bool	  ForwardKinematic(SE3<_Scaler>&					out_mat, 
+						   const SE3<_Scaler>&				zero_mat,
+						   const vector<Twist<_Scaler>>&	expcoords, 
+						   const DynVec<_Scaler>&			thetas);
+template<class _Scaler>
+bool	  ForwardKinematic(SE3<_Scaler>&					out_mat,
+						   const SE3<_Scaler>&				ini_mat,
+						   const vector<SE3<_Scaler>>&		adj_matrices);
 
 /// <summary>
 /// Get Analytic Jacobian with Specific thetas under exponential coordinates
@@ -99,12 +105,14 @@ bool	  ForwardKinematic(SE3<float>&					out_mat,
 /// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			指数坐标				</param>
 /// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				指定角度值向量			</param>
 /// <returns>								{bool}		[out]	flag of solving result			求解结果标志			</returns>
-bool	  Jacobian(DynMat<float>&						out_jacobian,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
-bool	  Jacobian(DynMat<float>&						out_jacobian,
-						   const vector<Twist<float>>&	expcoords,
-						   const vector<SE3<float>>&    adj_matrices);
+template<class _Scaler>
+bool	  Jacobian(DynMat<_Scaler>&							out_jacobian,
+							const vector<Twist<_Scaler>>&	expcoords,
+							const DynVec<_Scaler>&			thetas);
+template<class _Scaler>
+bool	  Jacobian(DynMat<_Scaler>&							out_jacobian,
+							const vector<Twist<_Scaler>>&	expcoords,
+							const vector<SE3<_Scaler>>&		adj_matrices);
 
 /// <summary>
 /// Get Null Space Projection Matrix with Specific thetas under exponential coordinates
@@ -116,9 +124,10 @@ bool	  Jacobian(DynMat<float>&						out_jacobian,
 /// <param name="expcoords">		cref	{Twists}	[in]	exponential coordinates			指数坐标				</param>
 /// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				指定角度值向量			</param>
 /// <returns>								{bool}		[out]	flag of solving result			求解结果标志			</returns>
-bool	  NullSpaceProjection(DynMat<float>&			out_projection_matrix,
-						   const vector<Twist<float>>&	expcoords,
-						   const DynVec<float>&			thetas);
+template<class _Scaler>
+bool	  NullSpaceProjection(DynMat<_Scaler>&				out_projection_matrix,
+						const vector<Twist<_Scaler>>&		expcoords,
+						const DynVec<_Scaler>&				thetas);
 
 /// <summary>
 /// Solving Inverse Kinematic Problem using numerical method called Least-Squared Method.
@@ -136,27 +145,81 @@ bool	  NullSpaceProjection(DynMat<float>&			out_projection_matrix,
 /// <param name="MaxIteration"> const	{int}			[in]	max iteration limit				最大迭代次数	</param>
 /// <param name="Scaler">		const	{Scaler}		[in]	decay scaler					步长衰减值		</param>
 /// <returns>							{bool}			[out]	flag of solving result			求解结果标志	</returns>
-bool	  InverseKinematic(DynVec<float>&				out_thetas,
-						   const SE3<float>&			zero_mat,
-						   const vector<Twist<float>>&	expcoords,
-						   const SE3<float>&			goal_mat, 
-						   const DynVec<float>&			init_guess,
-						   const IKSolver<float>&		solver, 
-						   const float					Precision	 = 1e-5f, 
+template<class _Scaler>
+bool	  InverseKinematic(DynVec<_Scaler>&				out_thetas,
+						   const SE3<_Scaler>&			zero_mat,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const SE3<_Scaler>&			goal_mat, 
+						   const DynVec<_Scaler>&		init_guess,
+						   const IKSolver<_Scaler>&		solver, 
+						   const double					Precision	 = 1e-5f, 
 						   const int					MaxIteration = 50,
-						   const float					Scaler		 = 0.3f);
+						   const double					Scaler		 = 0.3f);
 
-bool	  JacobianWithSE3(DynMat<float>&				out_jacobian,
-						   SE3<float> &					out_matrix,
-						   const vector<Twist<float>>&	expcoords,
-						   const vector<SE3<float>>&    adj_matrices);
+/// <summary>
+/// 
+/// </summary>
+/// <param name="out_thetas">	ref		{DynVec}		[out]	result							计算结果		</param>
+/// <param name="zero_mat">		cref	{SE3}			[in]	zero-point end transform matrix 零点末端位姿矩阵</param>
+/// <param name="expcoords">	cref    {Twists}		[in]	exponential coordinates			指数坐标		</param>
+/// <param name="goal_mat">		cref	{SE3}			[in]	goal transform matrix			目标末端位姿矩阵</param>
+/// <param name="init_guess">	cref	{DynVec}		[in]	initial guess of result theta   初值点猜测值	</param>
+/// <param name="solver">		cref	{HerusticSolver}[in]	heuristic solver				启发式求解器	</param>
+/// <param name="Precision">	const	{Scaler}		[in]	precision						求解精度		</param>
+/// <param name="MaxIteration"> const	{int}			[in]	max iteration limit				最大迭代次数	</param>
+/// <param name="Scaler">		const	{Scaler}		[in]	decay scaler					步长衰减值		</param>
+/// <returns>							{bool}			[out]	flag of solving result			求解结果标志	</returns>
+template<class _Scaler>
+bool	  InverseKinematicHeuristic(
+						   DynVec<_Scaler>&				out_thetas,
+						   const SE3<_Scaler>&			zero_mat,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const SE3<_Scaler>&			goal_mat,
+						   const DynVec<_Scaler>&		init_guess,
+						   const HeuristicInverseKinematicSolver<_Scaler>&
+														solver,
+						   const double					Precision	= 1e-5f,
+						   const int					MaxIteration= 50);
 
+
+template<class _Scaler>
+bool	  JacobianWithSE3(DynMat<_Scaler>&				out_jacobian,
+						   SE3<_Scaler> &				out_matrix,
+						   const vector<Twist<_Scaler>>&expcoords,
+						   const vector<SE3<_Scaler>>&  adj_matrices);
+
+/// <summary>
+/// Get transform matrix using standard Denavit-Hartenberg method
+/// <para>
+/// 使用标准 DH 方法获取位姿变换矩阵
+/// </para>
+/// </summary>
+/// <param name="alpha">	{double}	 [in]  joint twist angle(rad.)			关节扭角(rad.)		</param>
+/// <param name="a">		{double}	 [in]  link length(m.)					连杆长度(m.)		</param>
+/// <param name="theta0">	{double}	 [in]  initial joint angle bais(rad.)	关节转角偏转(rad.)	</param>
+/// <param name="d">		{double}	 [in]  link bias(m.)					连杆偏置(m.)		</param>
+/// <param name="theta">	{double}	 [in]  joint angle(rad.)				关节转角(rad.)		</param>
+/// <returns>				{SE3 double} [out] transform matrix					位姿变换矩阵		</returns>
 SE3d StandardDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f StandardDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
 
+/// <summary>
+/// Get transform matrix using modified Denavit-Hartenberg method
+/// <para>
+/// 使用改进 DH 方法获取位姿变换矩阵
+/// </para>
+/// <param name="alpha">	{double}	 [in]  joint twist angle(rad.)			关节扭角(rad.)		</param>
+/// <param name="a">		{double}	 [in]  link length(m.)					连杆长度(m.)		</param>
+/// <param name="theta0">	{double}	 [in]  initial joint angle bais(rad.)	关节转角偏转(rad.)	</param>
+/// <param name="d">		{double}	 [in]  link bias(m.)					连杆偏置(m.)		</param>
+/// <param name="theta">	{double}	 [in]  joint angle(rad.)				关节转角(rad.)		</param>
+/// <returns>				{SE3 double} [out] transform matrix					位姿变换矩阵		</returns>
 SE3d ModifiedDH(double alpha, double a, double theta0, double d, double theta = 0.0);
 SE3f ModifiedDH(float alpha, float a, float theta0, float d, float theta = 0.0f);
+
 }
 }
+
+#include <GComponent/grobotkinematic-inl.hpp>
 
 #endif
