@@ -1,5 +1,5 @@
 # GComponentBaseLib
-a math function based on Eigen supply some extra helper function on Robotic caculations
+Library based on Eigen supply some extra helper functions to robotic caculations
 
 ## Prerequisites
 + **Eigen >= 3.4.0** : header only C++ template library for linear algebra: matrices, vectors, numerical solvers, and related algorithms.
