@@ -1,28 +1,34 @@
 #ifndef _GGEOMETRY_HPP
 #define _GGEOMETRY_HPP
 
-#include <eigen3/Eigen/Dense>
+#include <Concept/gconcept.hpp>
+#include <GComponent/GTransform.hpp>
+#include <LSSolver/LinearSystemSolver.hpp>
+
+#include <Eigen/Core>
+#include <Eigen/LU>
+
 #include <functional>
 #include <algorithm>
 #include <numeric>
 #include <vector>
 
-#include <GComponent/GTransform.hpp>
-
-#include <LSSolver/LinearSystemSolver.hpp>
-
+// TODO: add comments
 namespace GComponent
 {
-using std::function;
+
 using std::tuple;
 using std::vector;
-using DynMatrixd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
-using Twistd = Eigen::Matrix<double, 6, 1>;
-using Vec3d = Eigen::Vector3d;
-using Vec3dT = Eigen::Matrix<double, 1, 3>;
+using std::function;
 using Eigen::Vector3d;
 using Eigen::Matrix3d;
 using Eigen::Matrix4d;
+
+using Vec3d		 = Eigen::Vector3d;
+using Vec3f		 = Eigen::Vector3f;
+using Vec3dT	 = Eigen::Matrix<double, 1, 3>;
+using Twistd	 = Eigen::Matrix<double, 6, 1>;
+using DynMatrixd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 
 /// <summary>
 /// 插值函数，目前仅支持列向量插值，待完善为行列均支持
@@ -33,7 +39,7 @@ using Eigen::Matrix4d;
 /// <param name="t"></param>
 /// <returns></returns>
 template<class _AnyVec>
-inline _AnyVec Lerp(const _AnyVec & v1, const _AnyVec& v2, double t)
+_AnyVec Lerp(const _AnyVec & v1, const _AnyVec& v2, double t)
 {
 	static_assert(_AnyVec::ColsAtCompileTime == 1, "The Function not Support Matrix");
 	const unsigned ROW = v1.rows();
@@ -46,9 +52,13 @@ inline _AnyVec Lerp(const _AnyVec & v1, const _AnyVec& v2, double t)
 	return tmp;
 }
 
-inline double Lerp(const double & d1, const double& d2, double t)
+inline double Lerp(double d1, double d2, double t)
 {
     return (1 - t) * d1 + t * d2;
+}
+
+inline float Lerp(float d1, float d2, float t) {
+	return (1 - t) * d1 + t * d2;
 }
 
 /// <summary>
@@ -58,41 +68,44 @@ inline double Lerp(const double & d1, const double& d2, double t)
 /// <param name="upperBound"></param>
 /// <param name="n"></param>
 /// <returns></returns>
-inline vector<double> Linspace(const double lowerBound, const double upperBound,const int n)
+template<class Scalar>
+vector<Scalar> Linspace(const Scalar lowerBound, const Scalar upperBound,const int kN)
 {
-	vector<double> rval(n);
-	const double step = (upperBound - lowerBound) / (n - 1);
-	double val_cur = lowerBound;
-	for (auto it = rval.begin(); it != rval.end(); ++it)
-	{
-		*it = val_cur;
-		val_cur += step;
+	vector<Scalar> rval(kN);
+	const Scalar   kStep	= (upperBound - lowerBound) / (kN - 1);
+	double		   val_cur  = lowerBound;
+	for (auto& val : rval) {
+		val		=  val_cur;
+		val_cur += kStep;
 	}
+	
 	return rval;
 }
 
-/// <summary>
-/// 空间三点获取圆心函数
-/// </summary>
-/// <param name="p_1"></param>
-/// <param name="p_2"></param>
-/// <param name="p_3"></param>
-/// <returns></returns>
-inline Vec3d GetCenterOfCircle(const Vec3d & p_1, const Vec3d & p_2, const Vec3d & p_3)
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar> 
+GetCenterOfCircle(const Eigen::MatrixBase<Derived>& p1, 
+				  const Eigen::MatrixBase<Derived>& p2, 
+				  const Eigen::MatrixBase<Derived>& p3)
 {
-	Matrix3d GetThis;	Vec3d x,b;
-	
-	Vec3dT vec_1 = (p_2 - p_1).transpose(),
-		   vec_2 = (p_3 - p_1).transpose(),
-		   vec_cross = vec_1.cross(vec_2);
-	GetThis.block(0, 0, 1, 3) = vec_1;
-	GetThis.block(1, 0, 1, 3) = vec_2;
-	GetThis.block(2, 0, 1, 3) = vec_cross;
-	b = Vec3d(vec_1.dot((p_1 + p_2) / 2.0f),
-		      vec_2.dot((p_3 + p_1) / 2.0f),
-			  vec_cross.dot(p_3));
-	
-	x = GetThis.inverse() * b;
+	using Scalar  = typename Derived::Scalar;
+	using Mat3    = Eigen::Matrix3<Scalar>;
+	using Vec3    = Eigen::Vector3<Scalar>;
+	using RowVec3 = Eigen::RowVector3<Scalar>;
+				
+	RowVec3 vec1			  = (p2 - p1).transpose(),
+		    vec2			  = (p3 - p1).transpose(),
+		    vec_cross		  = vec1.cross(vec2);
+
+	Mat3	aux_mat;
+	aux_mat.block(0, 0, 1, 3) = vec1;
+	aux_mat.block(1, 0, 1, 3) = vec2;
+	aux_mat.block(2, 0, 1, 3) = vec_cross;
+		
+	Vec3 b = Vec3(vec1.dot((p1 + p2) * static_cast<Scalar>(0.5)),
+				  vec2.dot((p3 + p1) * static_cast<Scalar>(0.5)),
+				  vec_cross.dot(p3));	
+	Vec3 x = aux_mat.inverse() * b;
 	return x;
 }
 
@@ -118,157 +131,152 @@ Vector<_Scaler, 3> GetRotateAxisAngleFrom2Vec(const Vector<_Scaler, 3>& v1, cons
 	return (angle * n).eval();
 }
 
-
-// FIXME: 与GetCircleFunction冗余
-/// <summary>
-/// 空间三点获取圆弧函数
-/// </summary>
-/// <param name="p_1"></param>
-/// <param name="p_2"></param>
-/// <param name="p_3"></param>
-/// <returns></returns>
-inline double GetRadiusOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec3d &p_3)
+template<Vec3Convertible Derived>
+auto GetRadiusOfCircle(const Eigen::MatrixBase<Derived>& p1, const Eigen::MatrixBase<Derived>& p2, const Eigen::MatrixBase<Derived>& p3)
 {
-    Vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
-    return ( p_1 - coc).norm();
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+    Vec3 coc   = GetCenterOfCircle(p1, p2, p3);
+    return ( p1 - coc).norm();
 }
 
-// FIXME: 与GetCircleFunction冗余
-/// <summary>
-/// 空间三点获取圆弧差角函数
-/// </summary>
-/// <param name="p_1"></param>
-/// <param name="p_2"></param>
-/// <param name="p_3"></param>
-/// <returns></returns>
-inline double GetArcDeltaOfCircle(const Vec3d & p_1, const Vec3d& p_2, const Vec3d &p_3)
+template<Vec3Convertible Derived>
+typename Derived::Scalar 
+GetArcDeltaOfCircle(const Eigen::MatrixBase<Derived>& p1, 
+					const Eigen::MatrixBase<Derived>& p2,
+					const Eigen::MatrixBase<Derived>& p3)
 {
-    Vec3d rotateAxis = ((p_1 - p_2).cross(p_3 - p_1)).normalized();
-    Vec3d coc = GetCenterOfCircle(p_1, p_2, p_3);
-    Vec3d vec_ini = (p_1 - coc).normalized(),
-          vec_end = (p_3 - coc).normalized();
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
 
-    double angle =  acos(vec_ini.dot(vec_end));
+    Vec3   axis     = ((p1 - p2).cross(p3 - p1)).normalized(),
+		   center   = GetCenterOfCircle(p1, p2, p3);
+    Vec3   vec_ini  = (p1 - center).normalized(),
+           vec_end  = (p3 - center).normalized();
 
-    return rotateAxis.dot(vec_ini.cross(vec_end)) > 0.?
-                angle:
-                2* EIGEN_PI - angle;
+    Scalar angle	= acos(vec_ini.dot(vec_end));
+	bool   same_dir = axis.dot(vec_ini.cross(vec_end)) > 0.;
+    return same_dir? angle: 2 * EIGEN_PI - angle;
 }
 
-/// <summary>
-/// 螺旋轴直线插值函数
-/// </summary>
-/// <param name="t_ini"></param>
-/// <param name="t_end"></param>
-/// <returns></returns>
-inline function<Twistd(double)> GetScrewLineFunction(const SE3d& T_ini, const SE3d& T_end)
+template<Mat4Convertible Derived>
+function<Twist<typename Derived::Scalar>(typename Derived::Scalar)> 
+GetScrewLineFunction(const Eigen::MatrixBase<Derived>& T_ini, const Eigen::MatrixBase<Derived>& T_end)
 {
-    const Vec3d
-        & pos_ini = T_ini.block(0, 3, 3, 1),
-        & pos_end = T_end.block(0, 3, 3, 1);
-    Twistd
-          t_ini   = LogMapSE3Tose3(T_ini),
-          t_end   = LogMapSE3Tose3(T_end);
-    const Vec3d
-        & w_ini   = t_ini.block(0, 0, 3, 1),
-        & w_end   = t_end.block(0, 0, 3, 1);
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+	using SE3    = Eigen::Matrix4<Scalar>;
 
-    auto LineFunction = [pos_ini = pos_ini, pos_end = pos_end, w_ini = w_ini, w_end = w_end](double t){
-        SE3d  T_cur   = SE3d::Identity();
-        Vec3d pos_cur = Lerp(pos_ini, pos_end, t);
-        Vec3d w_cur   = Lerp(w_ini, w_end, t);
+    const Vec3& pos_ini = T_ini.block(0, 3, 3, 1), &pos_end = T_end.block(0, 3, 3, 1);
+    Twist		t_ini   = LogMapSE3Tose3(T_ini),    t_end   = LogMapSE3Tose3(T_end);
+    const Vec3& w_ini   = t_ini.block(0, 0, 3, 1), &w_end   = t_end.block(0, 0, 3, 1);
+
+    auto lin_func = [pos_ini = pos_ini, pos_end = pos_end, w_ini = w_ini, w_end = w_end](Scalar t)->Twist{
+        SE3   T_cur   = SE3::Identity();
+        Vec3  pos_cur = Lerp(pos_ini, pos_end, t);
+        Vec3  w_cur   = Lerp(w_ini, w_end, t);
         T_cur.block(0, 0, 3, 3) = Roderigues(w_cur);
         T_cur.block(0, 3, 3, 1) = pos_cur;
         return LogMapSE3Tose3(T_cur);
     };
 
-    return LineFunction;
+    return lin_func;
 }
 
-inline function<Twistd(double)> GetScrewLineFunction(const Twistd & t_ini, const Twistd & t_end)
+template<Vec6Convertible Derived>
+auto 
+GetScrewLineFunction(const Eigen::MatrixBase<Derived> & t_ini, const Eigen::MatrixBase<Derived>& t_end)
 {
     return GetScrewLineFunction(ExpMapping(t_ini), ExpMapping(t_end));
 }
 
 
-/// <summary>
-/// 三点画圆弧函数
-/// </summary>
-/// <param name="p_ini"></param>
-/// <param name="p_end"></param>
-/// <param name="p_mid"></param>
-/// <returns></returns>
-inline function<Vec3d(double)> GetCircleFunction(const Vec3d& p_ini, const Vec3d& p_end, const Vec3d& p_mid)
+template<Vec3Convertible Derived>
+auto
+GetCircleFunction(const Eigen::MatrixBase<Derived>& p_ini, 
+				  const Eigen::MatrixBase<Derived>& p_end, 
+				  const Eigen::MatrixBase<Derived>& p_mid)
 {
-	Vec3d rotateAxis = ((p_mid - p_ini).cross(p_end - p_ini)).normalized(),
-		  coC = GetCenterOfCircle(p_ini, p_mid, p_end);
-	double radius = (p_ini - coC).norm();
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
 
-	Vec3d vec_ini = (p_ini - coC).normalized(),
-		  vec_end = (p_end - coC).normalized();
+	Vec3   axis	  = ((p_mid - p_ini).cross(p_end - p_ini)).normalized(),
+		   center = GetCenterOfCircle(p_ini, p_mid, p_end);
+	Scalar radius = (p_ini - center).norm();
 
-	double theta_delta =
-		rotateAxis.dot(vec_ini.cross(vec_end)) > 0.?
-		acos(vec_ini.dot(vec_end)) :
-		-acos(vec_ini.dot(vec_end)) + 2 * EIGEN_PI;
+	Vec3  vec_ini = (p_ini - center).normalized(),
+		  vec_end = (p_end - center).normalized();
 
-	auto CircleFun = [
-		total = theta_delta,
-		rotateAxis = rotateAxis,
-		coCircle = coC,
-		radius = radius,
-		vec_ini = vec_ini](double t)->Vec3d {
-		return coCircle + radius * (Roderigues(rotateAxis, t * total) * vec_ini);
+	bool   same_dir = axis.dot(vec_ini.cross(vec_end)) > 0.;
+	Scalar angle    = acos(vec_ini.dot(vec_end));
+	angle = same_dir ? angle : 2 * EIGEN_PI - angle;
+
+	auto circle_func = [total  = angle,  axis = axis,		center = center, 
+						radius = radius, vec_ini = vec_ini]
+	(Scalar t)->Vec3 {
+		return center + radius * (Roderigues(axis, t * total) * vec_ini);
 	};
-	return CircleFun;
+	return circle_func;
 }
 
-inline
-function<Twistd(double)>
-GetCircleFunction(const Twistd& t_ini, const Twistd& t_end, const Vec3d& p_mid)
+template<Vec6Convertible TwistDerived, Vec3Convertible VecDerived>
+requires ScalarSame<TwistDerived, VecDerived>
+auto
+GetCircleFunction(const Eigen::MatrixBase<TwistDerived>& t_ini, 
+				  const Eigen::MatrixBase<TwistDerived>& t_end, 
+				  const Eigen::MatrixBase<VecDerived>&   p_mid)
 {
-    SE3d T_ini = ExpMapping(t_ini),
-         T_end = ExpMapping(t_end);
-    const Vec3d& p_ini = T_ini.block(0, 3, 3, 1),
-                 p_end = T_end.block(0, 3, 3, 1);
-	const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
-	             w_end = t_end.block(0, 0, 3, 1);
-	auto CirclePosFunc = GetCircleFunction(p_ini, p_end, p_mid);
-	auto CircleFun = [PosFunc = CirclePosFunc,
-		              w_ini = w_ini, w_end = w_end](double t)->Twistd {
-        SE3d T_cur = SE3d::Identity();
+	using Scalar = typename TwistDerived::Scalar;
+	using SE3    = Eigen::Matrix4<Scalar>;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+
+    SE3   T_ini = ExpMapping(t_ini),	   T_end = ExpMapping(t_end);
+    Vec3  p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
+	Vec3  w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
+
+	auto pos_func	 = GetCircleFunction(p_ini, p_end, p_mid);
+	auto circle_func = [PosFunc = pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+        SE3 T_cur = SE3::Identity();
         T_cur.block(0, 3, 3, 1) = PosFunc(t);
         T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
         return LogMapSE3Tose3(T_cur);
 	};
-	return CircleFun;
+	return circle_func;
 }
 
-inline
-function<Vec3d(double)>
-GetCubicSplineFunction(const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
+template<Vec3Convertible Derived>
+auto
+GetCubicSplineFunction(const vector<Derived>& poses, 
+					   double M0 = 0, 
+					   double Mn = 0)
 {
-	int n = pList.size();
-	DynMatrixd A_pad, b;
-	vector<double> t = Linspace(0, 1, n);
+	using  Scalar  = typename Derived::Scalar;
+	using  MatX    = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
+	using  Vec3	   = Eigen::Vector3<Scalar>;
+	using  RowVec3 = Eigen::RowVector3<Scalar>;
+	int    n = poses.size();
+	MatX   A_pad, b;
+	vector<Scalar> t = Linspace(static_cast<Scalar>(0.0), static_cast<Scalar>(1.0), n);
 	
-	DynMatrixd Ms = DynMatrixd::Zero(n, 3);
+	MatX Ms = MatX::Zero(n, 3);
 		
-	GaussSeidelSolver solver;
+	GaussSeidelSolver<Scalar> solver;
 
 	for (int i = 0; i < 3; ++i)
 	{
 		/* Expandding a Padding to Fit Fomulation */
-		A_pad = DynMatrixd::Zero(n - 1, n - 1);
-		b = DynMatrixd::Zero(n - 2, 1);
-		double h_last = t[1] - t[0];
-		double b_last = 6 / h_last * (pList[1][i] - pList[0][i]);
+		A_pad = MatX::Zero(n - 1, n - 1);
+		b     = MatX::Zero(n - 2, 1);
+		Scalar h_last = t[1] - t[0];
+		Scalar b_last = 6 / h_last * (poses[1][i] - poses[0][i]);
 
 		b(0, 0) -= M0 * h_last;
 		for (int j = 0; j < n - 2; ++j)
 		{
-			double h_next = t[j + 2] - t[j + 1];
-			double b_next = 6 / h_next * (pList[j + 2][i] - pList[j + 1][i]);
+			Scalar h_next = t[j + 2] - t[j + 1];
+			Scalar b_next = 6 / h_next * (poses[j + 2][i] - poses[j + 1][i]);
 
 			A_pad(j, j) = 2 * (h_last + h_next);
 			A_pad(j, j + 1) = A_pad(j + 1, j) = h_next;
@@ -279,20 +287,17 @@ GetCubicSplineFunction(const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 		}	
 		b(n - 3, 0) -= Mn * h_last;
 
-		/* resize to The Normal Size */
-		const DynMatrixd & GetThis = A_pad.block(0, 0, n - 2, n - 2);
-		Ms.block(1, i, n - 2, 1) = solver(GetThis, b);
+		// resize to normal size 
+		const MatX & A = A_pad.block(0, 0, n - 2, n - 2);
+		Ms.block(1, i, n - 2, 1) = solver(A, b);
 	}
 	
-	Ms.block(0, 0, 1, 3) = Vec3dT(M0, M0, M0);
-	Ms.block(n - 1, 0, 1, 3) = Vec3dT(Mn, Mn, Mn);
-    //std::cout << "Ms:=\n" << Ms << std::endl << std::endl;
+	Ms.block(0, 0, 1, 3)     = RowVec3(M0, M0, M0);
+	Ms.block(n - 1, 0, 1, 3) = RowVec3(Mn, Mn, Mn);
 
-	auto SiFun = []
-	(const pair<double, double>& M,
-	 const pair<double, double>& x_delta,
-	 const pair<double, double>& y,
-	 double hi)->double {
+	auto si_func = []
+	(const pair<Scalar, Scalar>& M, const pair<Scalar, Scalar>& x_delta,
+	 const pair<Scalar, Scalar>& y, Scalar hi)->Scalar {
 		return (
 			M.first  / (6. * hi) * pow(x_delta.second, 3) +
 			M.second / (6. * hi) * pow(x_delta.first, 3)  +
@@ -300,17 +305,17 @@ GetCubicSplineFunction(const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 			(y.first / hi - M.first * hi / 6.) * x_delta.second);
 	};
 
-	auto SlineFun = [x = t, y= pList, Ms = Ms, Fun = SiFun]
-	(double t)->Vec3d{
-		static double step = 1. / (x.size() - 1);	
-		int idx = t >= 1 ?x.size() - 2 : t / step;
-		Vec3d point;
-		const double hi = x[idx + 1] - x[idx],
+	auto cubic_spline_func = [x = t, y= poses, Ms = Ms, func = si_func]
+	(Scalar t)->Vec3{
+		static Scalar step = 1. / (x.size() - 1);	
+		int  idx = t >= 1 ?x.size() - 2 : t / step;
+		Vec3 point;
+		const Scalar hi			= x[idx + 1] - x[idx],
 					 delta_next = x[idx + 1] - t,
-					delta_cur  = t - x[idx];
+					 delta_cur  = t - x[idx];
 		for (int i = 0; i < 3; ++i)
 		{
-			point[i] = Fun(
+			point[i] = func(
 				{ Ms(idx, i), Ms(idx + 1, i) }, 
 				{ delta_cur, delta_next }, 
 				{ y[idx][i], y[idx + 1][i] }, 
@@ -319,128 +324,159 @@ GetCubicSplineFunction(const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
 		return point;
 	};
 
-	return SlineFun;
+	return cubic_spline_func;
 }
 
-inline function<Vec3d(double)>
-GetCubicSplineFunction(const Vec3d& p_ini, const Vec3d& p_end, const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
+template<Vec3Convertible Derived>
+auto
+GetCubicSplineFunction(const Eigen::MatrixBase<Derived>& p_ini, 
+					   const Eigen::MatrixBase<Derived>& p_end, 
+					   const vector<Eigen::Vector3<typename Derived::Scalar>>& pList, 
+					   double M0 = 0, double Mn = 0)
 {
-	vector<Vec3d> temp{p_ini, p_end};
-	temp.insert(temp.end() - 1, pList.begin(), pList.end());
+	using Vec3 = Eigen::Vector3<typename Derived::Scalar>;
+	vector<Vec3> temp{p_ini, p_end};
+	temp.insert(temp.end() - 1, pList.begin(), pList.end());	
 	return GetCubicSplineFunction(temp, M0, Mn);
 }
 
-inline function<Twistd(double)>
-GetCubicSplineFunction(const Twistd& t_ini, const Twistd& t_end, const vector<Vec3d>& pList, double M0 = 0, double Mn = 0)
+template<Vec6Convertible Derived>
+function<Twist<typename Derived::Scalar>(typename Derived::Scalar)>
+GetCubicSplineFunction(const Eigen::MatrixBase<Derived>& t_ini,
+					   const Eigen::MatrixBase<Derived>& t_end,
+					   const vector<Eigen::Vector3<typename Derived::Scalar>>& pList, 
+					   double M0 = 0, double Mn = 0)
 {
-    SE3d T_ini = ExpMapping(t_ini),
-         T_end = ExpMapping(t_end);
-    const Vec3d& p_ini = T_ini.block(0, 3, 3, 1),
-                 p_end = T_end.block(0, 3, 3, 1);
-    const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
-                 w_end = t_end.block(0, 0, 3, 1);
-	auto PosFunc = GetCubicSplineFunction(p_ini, p_end, pList, M0, Mn);
-	auto SplineFunc = [PosFunc= PosFunc, 
-					   w_ini = w_ini, w_end = w_end](double t)->Twistd {
-        SE3d T_cur = SE3d::Identity();
-        T_cur.block(0, 3, 3, 1) = PosFunc(t);
+	using Scalar = typename Derived::Scalar;
+	using SE3    = Eigen::Matrix4<Scalar>;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+
+    SE3  T_ini = ExpMapping(t_ini),		  T_end = ExpMapping(t_end);
+    Vec3 p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
+    Vec3 w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
+
+	auto pos_func		   = GetCubicSplineFunction(p_ini, p_end, pList, M0, Mn);
+	auto cubic_spline_func = [pos_func= pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+        SE3 T_cur = SE3::Identity();
+        T_cur.block(0, 3, 3, 1) = pos_func(t);
         T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
         return LogMapSE3Tose3(T_cur);
 	};
-	return SplineFunc;
+
+	return cubic_spline_func;
 }
 
-
-template<class _AnyVec>
-inline _AnyVec
-DeCasteljau(const vector<_AnyVec>& pRest, double t)
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar>
+DeCasteljau(const vector<Derived>& pRest, double t)
 {
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+
 	if (pRest.size() == 1)
 	{
 		return pRest.back();
 	}
-	vector<_AnyVec> pRest_new(pRest.size() - 1);
+	vector<Vec3> pRest_new(pRest.size() - 1);
 	std::transform(pRest.begin(), pRest.end() - 1, pRest.begin() + 1, pRest_new.begin(),
-		[t = t](auto& num1, auto& num2) {
+		[t = t](auto& num1, auto& num2)->Vec3{
 		return Lerp(num1, num2, t);
 	});
+
 	return DeCasteljau(pRest_new, t);
 }
 
-
-inline function<Vec3d(double)>
-GetBezierSplineFunction(const vector<Vec3d> & pList)
+template<class Scalar>
+function<Eigen::Vector3<Scalar>(Scalar)>
+GetBezierSplineFunction(const vector<Eigen::Vector3<Scalar>> & pList)
 {
-	return [pRest = pList](double t)->Vec3d {
+	return [pRest = pList](Scalar t)->Vec3d {
 		return DeCasteljau(pRest, t);
 	};
 }
 
-inline function<Vec3d(double)>
-GetBezierInterSplineFunction(const vector<Vec3d>& pList, double insertLength = 0.18)
+template<class Scalar>
+function<Eigen::Vector3<Scalar>(Scalar)>
+GetBezierInterSplineFunction(const vector<Eigen::Vector3<Scalar>>& pList, double insertLength = 0.18)
 {
-	const int n = pList.size();
-	vector<Vec3d> contrlPoints(3 * n - 2);
+	using Vec3 = Eigen::Vector3<Scalar>;
 
-	std::for_each(contrlPoints.begin(), contrlPoints.begin() + 2, [val = pList.front()](auto & num) {num = val; });
-	std::for_each(contrlPoints.end() - 2, contrlPoints.end(), [val = pList.back()](auto & num) {num = val; });
+	const int n = pList.size();
+	vector<Vec3> control_points(3 * n - 2);
+
+	std::for_each(control_points.begin(), control_points.begin() + 2, [val = pList.front()](auto & num) {num = val; });
+	std::for_each(control_points.end() - 2, control_points.end(), [val = pList.back()](auto & num) {num = val; });
 	for (int i = 1; i < n - 1; ++i)
 	{
-		Vec3d delta = pList[i + 1] - pList[i - 1];
-		contrlPoints[3 * i] = pList[i];
-		contrlPoints[3 * i - 1] = pList[i] - insertLength * delta;
-		contrlPoints[3 * i + 1] = pList[i] + insertLength * delta;
+		Vec3 delta = pList[i + 1] - pList[i - 1];
+		control_points[3 * i]     = pList[i];
+		control_points[3 * i - 1] = pList[i] - insertLength * delta;
+		control_points[3 * i + 1] = pList[i] + insertLength * delta;
 	}
 
-	vector<function<Vec3d(double)>> SplineFuncs(n - 1);
+	vector<function<Vec3(Scalar)>> spline_funcs(n - 1);
 	{
-		auto itf = SplineFuncs.begin();
-		auto itP = contrlPoints.begin();
-		for (; itf != SplineFuncs.end(); ++itf, itP += 3)
+		auto itf = spline_funcs.begin();
+		auto itP = control_points.begin();
+		for (; itf != spline_funcs.end(); ++itf, itP += 3)
 		{
 			*itf = GetBezierSplineFunction(
-				vector<Vec3d>(itP, itP + 4)
+				vector<Vec3>(itP, itP + 4)
 			);
 		}
 	}
     
-	auto BezierSplineFunc = [SplineFuncs = SplineFuncs]
-	(double t)->Vec3d {
-		static double step = 1. / SplineFuncs.size();
-
-		int idx = t > 1 ? SplineFuncs.size() - 1 : t / step;
-
-		double t_input = t / step - idx;
-		return SplineFuncs[idx](t_input);
+	auto bezier_splin_func = [splin_funcs = spline_funcs]
+	(Scalar t)->Vec3 {
+		static Scalar step = 1. / splin_funcs.size();
+		int idx = t > 1 ? splin_funcs.size() - 1 : t / step;
+		Scalar t_input = t / step - idx;
+		return splin_funcs[idx](t_input);
 	};
 
-	return BezierSplineFunc;
+	return bezier_splin_func;
 }
 
-inline function<Vec3d(double)>
-GetBezierInterSplineFunction(const Vec3d& p_ini, const Vec3d& p_end, const vector<Vec3d>& pList, double insertLength = 0.18)
+template<class Scalar>
+function<Eigen::Vector3<Scalar>(Scalar)>
+GetBezierInterSplineFunction(const Eigen::Vector3<Scalar>& p_ini, 
+							 const Eigen::Vector3<Scalar>& p_end, 
+							 const Eigen::Vector3<Scalar>& pList, 
+							 double insertLength = 0.18)
 {
-	vector<Vec3d> temp{ p_ini, p_end };
+	using Vec3 = Eigen::Vector3<Scalar>;
+	vector<Vec3> temp{ p_ini, p_end };
 	temp.insert(temp.begin() + 1, pList.begin(), pList.end());
 	return GetBezierInterSplineFunction(temp, insertLength);
 }
 
-inline function<Twistd(double)>
-GetBezierInterSplineFunction(const Twistd& t_ini, const Twistd& t_end, const vector<Vec3d>& pList, double insertLength = 0.18)
+template<Vec6Convertible T, Vec3Convertible U>
+requires ScalarSame<T, U>
+function<Twist<typename T::Scalar>(typename T::Scalar)>
+GetBezierInterSplineFunction(const Eigen::MatrixBase<T>& t_ini, 
+							 const Eigen::MatrixBase<T>& t_end, 
+							 const vector<U>& pList, 
+							 double insertLength = 0.18)
 {
-	const Vec3d& p_ini = t_ini.block(3, 0, 3, 1),
-				 p_end = t_end.block(3, 0, 3, 1);
-	const Vec3d& w_ini = t_ini.block(0, 0, 3, 1),
-				 w_end = t_end.block(0, 0, 3, 1);
-	auto PosFunc = GetBezierInterSplineFunction(p_ini, p_end, pList, insertLength);
-	auto SplineFunc = [PosFunc = PosFunc,
-		w_ini = w_ini, w_end = w_end](double t)->Twistd {
-		Twistd twist;
-		twist.block(0, 0, 3, 1) = Lerp(w_ini, w_end, t);
-		twist.block(3, 0, 3, 1) = PosFunc(t);
-		return twist;
+	using Scalar = typename T::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+	using SE3    = Eigen::Matrix4<Scalar>;
+
+	Vec3 p_ini = t_ini.block(3, 0, 3, 1), p_end = t_end.block(3, 0, 3, 1);
+	Vec3 w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
+
+	auto pos_func = GetBezierInterSplineFunction(p_ini, p_end, pList, insertLength);
+	auto bezier_splin_func = [pos_func = pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+		SE3 T_cur = SE3::Identity();
+		T_cur.block(0, 3, 3, 1) = pos_func(t);
+		T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
+		return LogMapSE3Tose3(T_cur);
 	};
-	return SplineFunc;
+	return bezier_splin_func;
 }
 
 
@@ -449,7 +485,7 @@ template<class _AnyVec>
 class BSpline :function<_AnyVec(double)>
 {
 public:
-	BSpline(const vector<_AnyVec>& pList, unsigned order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
+	BSpline(const vector<_AnyVec>& pList, uint32_t order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
 	_AnyVec operator()(double t);
 
 private:
@@ -464,7 +500,7 @@ private:
 };
 
 template<class _AnyVec>
-BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, unsigned order, bool isInterpolation, BSplineNodeDefinition mode) :
+BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, uint32_t order, bool isInterpolation, BSplineNodeDefinition mode) :
 	_PList(pList), _BaseFunc(order + 1)
 {
 

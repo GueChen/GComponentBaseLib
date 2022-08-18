@@ -10,7 +10,9 @@
 
 #include <Concept/gconcept.hpp>
 
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Core>
+#include <Eigen/LU>
+
 #include <tuple>
 
 namespace GComponent {
@@ -28,7 +30,10 @@ using Twist  = Vector<_Scaler, 6>;
 template<class _Scaler>
 using AdMatrix = Matrix<_Scaler, 6, 6>;
 using SE3d   = SE3<double>;
+using SE3f = SE3<float>;
 using Twistd = Twist<double>;
+using Twistf = Twist<float>;
+
 
 /// <summary>
 /// make 3 x 3 shear matrix form 3 x 1 shear vector
@@ -452,6 +457,7 @@ auto ScrewToTwist(const Eigen::MatrixBase<Derived>& q, const Eigen::MatrixBase<D
 /// Logrithimic map : get a se3 twist from a SE3 homogeneous transform matrix
 /// <para>
 /// 使用对数映射从齐次变换矩阵获取对应的旋量
+/// </para>
 /// </summary>
 /// <param name="T">	cref	{SE3}	[in]	4 x 4 homogeneous transform matrix	齐次变换矩阵	</param>
 /// <returns>			val		{se3}	[out]	6 x 1 twist vector					6 x 1 旋量		</returns>

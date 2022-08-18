@@ -25,6 +25,9 @@ template<typename Derived, int ColAtCompile, int RowAtComile>
 concept MatConvertible = EigenSameSize<Eigen::Matrix<typename Derived::Scalar, ColAtCompile, RowAtComile>, Derived>;
 // convertible_to<Eigen::Matrix<typename Derived::Scalar, ColAtCompile, RowAtComile>, Derived> // not effect cause : Matrix(MatrixBase<Derived>)
 
+template<typename T, typename U>
+concept ScalarSame = std::same_as<typename T::Scalar, typename U::Scalar>;
+
 template<typename T, typename Derived>
 concept ScalarEquivalence = std::convertible_to<T, typename Derived::Scalar> || std::same_as<T, typename Derived::Scalar>;
 
