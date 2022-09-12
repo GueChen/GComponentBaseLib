@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 
+#include <Concept/gconcept.hpp>
 #include <LSSolver/PenroseInverse.hpp>
 #include <GComponent/GNumerical.hpp>
 
@@ -20,11 +21,19 @@ concept Equivalence = std::is_convertible_v<T, U> | std::is_same_v<T, U>;
 template<class _Scaler>
 inline Eigen::Vector<_Scaler, Eigen::Dynamic> ClampMaxAbs(const Eigen::Vector<_Scaler, Eigen::Dynamic>& vec, _Scaler factor)
 {
+	assert(factor >= 0.0 && __FILE__ && __LINE__ && "ClampMaxAbs ERROR::factor less than 0\n");
 	return vec.norm() > factor ? vec.normalized() * factor : vec;
 }
 template<class _Scaler, class _OtherScaler> requires std::is_convertible_v<_OtherScaler, _Scaler>
 inline Eigen::Vector<_Scaler, Eigen::Dynamic> ClampMaxAbs(const Eigen::Vector<_Scaler, Eigen::Dynamic>& vec, _OtherScaler factor) {
+	assert(factor >= 0.0 && __FILE__ && __LINE__ && "ClampMaxAbs ERROR::factor less than 0\n");
 	return vec.norm() > factor ? vec.normalized() * factor : vec;
+}
+
+template<class _Scalar>
+inline Eigen::VectorX<_Scalar> ClampMinAbs(const Eigen::VectorX<_Scalar>& vec, double factor) {
+	assert(factor >= 0.0 && __FILE__ && __LINE__ && "ClampMinAbs ERROR::factor less than 0\n");
+	return vec.norm() < factor ? vec.normalized() * factor : vec;
 }
 
 template<class _Scaler>

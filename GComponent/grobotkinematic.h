@@ -70,9 +70,15 @@ enum class SolveResult {
 /// <param name="thetas">			cref	{DynVec}	[in]	the value of thetas				指定角度值向量			</param>
 /// <returns>								{bool}		[out]	flag of solving result			求解结果标志			</returns>
 template<class _Scaler>
-bool	  Transforms(vector<SE3<_Scaler>>&					out_transforms,
-						   const vector<Twist<_Scaler>>&	expcoords,
-						   const DynVec<_Scaler>&			thetas);
+bool	  Transforms  (vector<SE3<_Scaler>>&			 out_transforms,
+					   const vector<Twist<_Scaler>>&	 expcoords,
+					   const DynVec<_Scaler>&			 thetas);
+
+// TODO: add comments
+template<class _Scalar>
+bool	  Differential(vector<SE3<_Scalar>>&			 out_transforms,
+					   const vector<Twist<_Scalar>>&	 expcoords,
+					   const DynVec<_Scalar>&			 thetas);
 
 /// <summary>
 /// Solving the end effect Transform using Exponential Product under exponential coordinates with specific thetas

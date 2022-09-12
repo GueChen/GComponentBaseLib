@@ -21,9 +21,11 @@ concept EigenSameCols = T::ColsAtCompileTime == Eigen::Dynamic || U::ColsAtCompi
 template<typename T, typename U>
 concept EigenSameSize = EigenSameRows<T, U> && EigenSameCols<T, U>;
 
-template<typename Derived, int ColAtCompile, int RowAtComile>
-concept MatConvertible = EigenSameSize<Eigen::Matrix<typename Derived::Scalar, ColAtCompile, RowAtComile>, Derived>;
+template<typename Derived, int RowAtCompile, int ColAtComile>
+concept MatConvertible = EigenSameSize<Eigen::Matrix<typename Derived::Scalar, RowAtCompile, ColAtComile>, Derived>;
 // convertible_to<Eigen::Matrix<typename Derived::Scalar, ColAtCompile, RowAtComile>, Derived> // not effect cause : Matrix(MatrixBase<Derived>)
+template<typename Derived, int RowAtCompile>
+concept VecConvertible = MatConvertible<Derived, RowAtCompile, 1>;
 
 template<typename T, typename U>
 concept ScalarSame = std::same_as<typename T::Scalar, typename U::Scalar>;
@@ -44,11 +46,11 @@ template<typename Derived>
 concept Mat6Convertible = MatConvertible<Derived, 6, 6>;
 // vector concepts
 template<typename Derived>
-concept Vec3Convertible = MatConvertible<Derived, 3, 1>;
+concept Vec3Convertible = VecConvertible<Derived, 3>;
 template<typename Derived>
-concept Vec4Convertible = MatConvertible<Derived, 4, 1>;
+concept Vec4Convertible = VecConvertible<Derived, 4>;
 template<typename Derived>
-concept Vec6Convertible = MatConvertible<Derived, 6, 1>;
+concept Vec6Convertible = VecConvertible<Derived, 6>;
 
 } // namespace GComponent
 

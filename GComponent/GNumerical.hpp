@@ -58,12 +58,12 @@ inline double ToStandarAngle(double val)
     return val;
 }
 
-inline double RadiusToDegree(double val)
+constexpr inline double RadiusToDegree(double val)
 {
     return val * MyDegree / MyPI;
 }
 
-inline double  DegreeToRadius(double val)
+constexpr inline double  DegreeToRadius(double val)
 {
     return val * MyPI / MyDegree;
 }
