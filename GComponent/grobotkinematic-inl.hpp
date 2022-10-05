@@ -22,6 +22,22 @@ bool Transforms(vector<SE3<_Scaler>>& out_transforms, const vector<Twist<_Scaler
 	return true;
 }
 
+template<class _Scalar>
+bool Differential(vector<SE3<_Scalar>>& out_transforms, const vector<Twist<_Scalar>>& expcoords, const DynVec<_Scalar>& thetas)
+{
+	int n = expcoords.size();
+	if (thetas.rows() != n) return false;
+
+	out_transforms.resize(n);
+	std::transform(std::execution::par_unseq, expcoords.begin(), expcoords.end(), thetas.begin(),
+		out_transforms.begin(),
+		[](const Twist<_Scalar>& epi, const _Scalar& theta) {
+			return DiffExpMapping(epi, theta);
+		});
+
+	return true;
+}
+
 template<class _Scaler>
 bool ForwardKinematic(SE3<_Scaler>& out_mat, const SE3<_Scaler>& ini_mat, const vector<Twist<_Scaler>>& expcoords, const DynVec<_Scaler>& thetas)
 {
@@ -149,7 +165,8 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 		trial_error();
 
 		while(residual_min < tolerance + residual_new) {
-			if (abs(residual - residual_new) < std::numeric_limits<_Scaler>::epsilon()) {
+			if (abs(residual - residual_new) < std::numeric_limits<_Scaler>::epsilon() || 
+				abs(decay) < std::numeric_limits<_Scaler>::epsilon()) {
 				precision_flag = true;
 				break;
 			}

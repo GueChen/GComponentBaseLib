@@ -250,7 +250,7 @@ inline Eigen::Matrix3<typename Derived::Scalar>
 DiffRoderigues(const Eigen::MatrixBase<Derived>& skew_sym_m, U theta)
 {
 	using Mat3 = Eigen::Matrix3<typename Derived::Scalar>;
-    return  Mat3::Identity() + cos(theta) * skew_sym_m + (1 + sin(theta)) * (skew_sym_m * skew_sym_m);
+    return  Mat3::Identity() + cos(theta) * skew_sym_m + sin(theta) * (skew_sym_m * skew_sym_m);
 }
 
 /// <summary>
@@ -407,7 +407,7 @@ DiffExpMapping(const Eigen::MatrixBase<Derived>& norm_t, U theta)
     mat.block(0, 0, 3, 3)	= DiffRoderigues(skew_sym_m, theta);
 
 	// Get translation part in differential form
-	Mat3	G				= Mat3::Identity() + (1 + sin(theta)) * skew_sym_m + 
+	Mat3	G				= Mat3::Identity() + sin(theta) * skew_sym_m + 
 							  (1 - cos(theta)) * skew_sym_m * skew_sym_m;
     mat.block(0, 3, 3, 1) = G * v;
 
