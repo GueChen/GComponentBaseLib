@@ -170,13 +170,13 @@ bool InverseKinematic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& zero_mat,
 	
 		++iter_count;
 	}
-
+	
+	out_thetas = thetas;
 	/* Accept the Result or Refuse */
-	if (iter_count > MaxIteration && residual > Precision) {
+	if (iter_count > MaxIteration || residual > Precision) {
 		return false;
 	}
-	else {
-		out_thetas = thetas;
+	else {		
 		return true;
 	}
 }
@@ -205,12 +205,12 @@ bool InverseKinematicHeuristic(DynVec<_Scaler>& out_thetas, const SE3<_Scaler>& 
 		++iter_count;
 	}
 
+	out_thetas = thetas;
 	/* Accept the Result or Refuse */
 	if (iter_count > MaxIteration && residual > Precision) {
 		return false;
 	}
-	else {
-		out_thetas = thetas;
+	else {		
 		return true;
 	}
 }

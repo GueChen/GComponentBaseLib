@@ -141,17 +141,17 @@ auto GetRadiusOfCircle(const Eigen::MatrixBase<Derived>& p1, const Eigen::Matrix
 
 template<Vec3Convertible Derived>
 typename Derived::Scalar 
-GetArcDeltaOfCircle(const Eigen::MatrixBase<Derived>& p1, 
-					const Eigen::MatrixBase<Derived>& p2,
-					const Eigen::MatrixBase<Derived>& p3)
+GetArcDeltaOfCircle(const Eigen::MatrixBase<Derived>& p_ini, 
+					const Eigen::MatrixBase<Derived>& p_mid,
+					const Eigen::MatrixBase<Derived>& p_end)
 {
 	using Scalar = typename Derived::Scalar;
 	using Vec3   = Eigen::Vector3<Scalar>;
 
-    Vec3   axis     = ((p1 - p2).cross(p3 - p1)).normalized(),
-		   center   = GetCenterOfCircle(p1, p2, p3);
-    Vec3   vec_ini  = (p1 - center).normalized(),
-           vec_end  = (p3 - center).normalized();
+    Vec3   axis     = ((p_mid - p_ini).cross(p_end - p_ini)).normalized(),
+		   center   = GetCenterOfCircle(p_ini, p_mid, p_end);
+    Vec3   vec_ini  = (p_ini - center).normalized(),
+           vec_end  = (p_end - center).normalized();
 
     Scalar angle	= acos(vec_ini.dot(vec_end));
 	bool   same_dir = axis.dot(vec_ini.cross(vec_end)) > 0.;
@@ -190,7 +190,6 @@ GetScrewLineFunction(const Eigen::MatrixBase<Derived> & t_ini, const Eigen::Matr
     return GetScrewLineFunction(ExpMapping(t_ini), ExpMapping(t_end));
 }
 
-
 template<Vec3Convertible Derived>
 auto
 GetCircleFunction(const Eigen::MatrixBase<Derived>& p_ini, 
@@ -215,6 +214,31 @@ GetCircleFunction(const Eigen::MatrixBase<Derived>& p_ini,
 						radius = radius, vec_ini = vec_ini]
 	(Scalar t)->Vec3 {
 		return center + radius * (Roderigues(axis, t * total) * vec_ini);
+	};
+	return circle_func;
+}
+
+template<Mat4Convertible MatDerived, Vec3Convertible VecDerived>
+requires ScalarSame<MatDerived, VecDerived>
+auto
+GetCircleFunction(const Eigen::MatrixBase<MatDerived>&   T_ini,
+				  const Eigen::MatrixBase<MatDerived>&   T_end,
+				  const Eigen::MatrixBase<VecDerived>&   p_mid){
+	using Scalar = typename MatDerived::Scalar;
+	using SE3    = Eigen::Matrix4<Scalar>;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+
+	Vec3  p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
+	Vec3  w_ini = LogMapSO3Toso3(T_ini.block(0, 0, 3, 3)),
+		  w_end = LogMapSO3Toso3(T_end.block(0, 0, 3, 3));
+	auto pos_func	 = GetCircleFunction(p_ini, p_end, p_mid);
+	auto circle_func = [PosFunc = pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+        SE3 T_cur = SE3::Identity();
+        T_cur.block(0, 3, 3, 1) = PosFunc(t);
+        T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
+        return LogMapSE3Tose3(T_cur);
 	};
 	return circle_func;
 }
