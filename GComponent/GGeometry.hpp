@@ -2,7 +2,8 @@
 #define _GGEOMETRY_HPP
 
 #include <Concept/gconcept.hpp>
-#include <GComponent/GTransform.hpp>
+#include <GComponent/types.h>
+#include <GComponent/gtransform.hpp>
 #include <LSSolver/LinearSystemSolver.hpp>
 
 #include <Eigen/Core>
@@ -24,11 +25,7 @@ using Eigen::Vector3d;
 using Eigen::Matrix3d;
 using Eigen::Matrix4d;
 
-using Vec3d		 = Eigen::Vector3d;
-using Vec3f		 = Eigen::Vector3f;
-using Vec3dT	 = Eigen::Matrix<double, 1, 3>;
-using Twistd	 = Eigen::Matrix<double, 6, 1>;
-using DynMatrixd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
+
 
 /// <summary>
 /// 插值函数，目前仅支持列向量插值，待完善为行列均支持

@@ -9,6 +9,7 @@
 #define _GTRANSFORM_HPP
 
 #include <Concept/gconcept.hpp>
+#include <GComponent/types.h>
 
 #include <Eigen/Core>
 #include <Eigen/LU>
@@ -16,24 +17,11 @@
 #include <tuple>
 
 namespace GComponent {
+
 using Eigen::Matrix;
 using Eigen::Vector;
 using std::pair;
 using std::tuple;
-using DynMatrixd = Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
-template<class _Scaler>
-using SE3	 = Eigen::Matrix4<_Scaler>;
-template<class _Scaler>
-using SO3	 = Eigen::Matrix3<_Scaler>;
-template<class _Scaler>
-using Twist  = Vector<_Scaler, 6>;
-template<class _Scaler>
-using AdMatrix = Matrix<_Scaler, 6, 6>;
-using SE3d   = SE3<double>;
-using SE3f = SE3<float>;
-using Twistd = Twist<double>;
-using Twistf = Twist<float>;
-
 
 /// <summary>
 /// make 3 x 3 shear matrix form 3 x 1 shear vector

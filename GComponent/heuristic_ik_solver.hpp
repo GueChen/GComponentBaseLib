@@ -1,7 +1,7 @@
 #ifndef _HEURISTIC_IK_SOLVER_HPP
 #define _HEURISTIC_IK_SOLVER_HPP
 
-#include <GComponent/GTransform.hpp>
+#include <GComponent/gtransform.hpp>
 #include <GComponent/GNumerical.hpp>
 #include <GComponent/GGeometry.hpp>
 

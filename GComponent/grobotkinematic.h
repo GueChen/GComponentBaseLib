@@ -9,7 +9,7 @@
 #define _GROBOTKINE_H
 
 #include <LSSolver/LinearSystemSolver.hpp>
-#include <GComponent/GTransform.hpp>
+#include <GComponent/gtransform.hpp>
 #include <GComponent/GNumerical.hpp>
 #include <GComponent/GGeometry.hpp>
 #include <GComponent/heuristic_ik_solver.hpp>
