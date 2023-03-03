@@ -1,6 +1,6 @@
 #pragma once
 #include "MyShader.h"
-#include <stb/stb_image.h>
+#include <stb_image.h>
 
 namespace GCONST {
 	constexpr size_t FLOAT_SIZE = sizeof(float);

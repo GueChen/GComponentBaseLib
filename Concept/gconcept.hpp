@@ -52,6 +52,8 @@ concept Vec4Convertible = VecConvertible<Derived, 4>;
 template<typename Derived>
 concept Vec6Convertible = VecConvertible<Derived, 6>;
 
+template<typename ConvexType>
+concept IsConvex = requires(ConvexType c) { {c.Support(Eigen::Vector3f{})}->std::convertible_to<Eigen::Vector3f>; };
 } // namespace GComponent
 
 #endif // !__G_CONCEPT_HPP
