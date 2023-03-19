@@ -4,10 +4,17 @@
 #include <GComponent/types.h>
 #include <Concept/gconcept.hpp>
 
-#include <limits>d
+#include <limits>
 
 namespace GComponent { 
 
+bool IntersectSphereSphere(float radius_A, const Vec3f& trans_A,
+						   float radius_B, const Vec3f& trans_B);
+
+bool IntersectSphereCapsule(float radius_sphere,  const Vec3f& trans_sphere,
+							float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const Vec3f rot_cap);
+bool IntersectSphereCapsule(float radius_sphere,  const Vec3f& trans_sphere,
+							float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const SO3f& rot_cap);
 /// <summary>
 /// Detects whther a pair of bounding boxes intersects with each other
 /// <para>
@@ -37,6 +44,8 @@ bool IntersectOBBOBB	 (const Vec3f& half_A, const Vec3f& trans_A, const Vec3f& r
 /// <param name="trans_sphere">		cref	{vec3}	[in]	  球体的 3 x 1 偏移向量		</param>
 /// <returns>						val		{bool}	[out]	  相交检测的结果			</returns>
 bool IntersectOBBSphere  (const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
+						  float radius_sphere,   const Vec3f& trans_sphere);
+bool IntersectOBBSphere  (const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box, 
 						  float radius_sphere,   const Vec3f& trans_sphere);
 
 /// <summary>

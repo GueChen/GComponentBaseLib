@@ -50,6 +50,31 @@ static Vec3f NearestPointTriangle(Vec3f* Q, const uint32_t& out_plane_4, uint32_
 	return closest;
 }
 
+
+constexpr static const float kEpsilon = 1e-5;
+/*
+*  
+*				Methods Implementations
+*
+**/
+bool GComponent::IntersectSphereSphere(float radius_A, const Vec3f& trans_A, float radius_B, const Vec3f& trans_B)
+{
+	return (trans_A - trans_B).norm() + kEpsilon < (radius_A + radius_B);
+}
+
+bool GComponent::IntersectSphereCapsule(float radius_sphere, const Vec3f& trans_sphere, float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const Vec3f rot_cap)
+{	
+	return IntersectSphereCapsule(radius_sphere, trans_sphere,
+								  radius_capsule, half_height_capsule, trans_cap, Roderigues(rot_cap));
+}
+
+bool GComponent::IntersectSphereCapsule(float radius_sphere, const Vec3f& trans_sphere, float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const SO3f& rot_cap)
+{
+	Vec3f half_vector = half_height_capsule * rot_cap * Vec3f::UnitZ();
+	float safe_distance = radius_sphere + radius_capsule;
+	return SqrDistPointSeg(trans_sphere, trans_cap - half_vector, trans_cap + half_vector) <= safe_distance * safe_distance;;
+}
+
 uint32_t GComponent::PointOutsideOfPlane4(const Vec3f& a, const Vec3f& b, const Vec3f& c, const Vec3f& d)
 {
 	uint32_t bit_map = 0;	// effective component is first 4 bit |-----| w | z | y | x |
@@ -169,9 +194,14 @@ bool GComponent::IntersectOBBOBB(const Vec3f& half_a, const Vec3f& trans_a, cons
 }
 
 bool GComponent::IntersectOBBSphere(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, float radius_sphere, const Vec3f& trans_sphere)
-{		
+{			
+	return IntersectOBBSphere(half_box, trans_box, Roderigues(rot_box), radius_sphere, trans_sphere);
+}
+
+bool GComponent::IntersectOBBSphere(const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box, float radius_sphere, const Vec3f& trans_sphere)
+{
 	const Vec3f t_w	   = trans_sphere - trans_box;
-	const Vec3f t_box  = Roderigues(rot_box).transpose() * t_w;
+	const Vec3f t_box  = rot_box.transpose() * t_w;
 	Vec3f t_align      = t_box;
 	bool outside = false;
 
@@ -216,7 +246,6 @@ bool GComponent::IntersectOBBSphere(const Vec3f& half_box, const Vec3f& trans_bo
 			return false;
 		}
 	}
-
 	return true;
 }
 

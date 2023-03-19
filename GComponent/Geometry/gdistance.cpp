@@ -386,7 +386,41 @@ static float SqrDistBoxLine(const Vec3f& half_box, const Vec3f& trans_box, const
 	return sqrt_dist;
 }
 
-float SqrDistBoxSeg(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
+float SqrDistPointSeg(const Vec3f& point, const Vec3f& seg_p0, const Vec3f& seg_p1, Vec3f* closet_on_seg)
+{	
+	// 相当于线段将空间进行了 3 等划分
+	// 由垂直于线段且过线段两端点的两个切平面把空间划分为 3 个部分
+	// 
+	//	negtive_part |  middle part	   |	positive part
+	//	             *p0 ============= *p1	
+	//			     |				   |
+	//  
+	// 通过点积可滤去与线段方向垂直分量
+
+	Vec3f cap_dir = seg_p1 - seg_p0,   diff	     = point - seg_p0;
+	float result  = diff.dot(cap_dir), seg_param = -1.0f;
+	if (result > 0.0f) {					// in middle or positive		
+		if (float compare = cap_dir.squaredNorm(); 
+			compare > result) {				// in middle
+			seg_param = result / compare;	// diff_dir_part_length / dir_norm
+			diff     -= seg_param * cap_dir;
+		}
+		else {								// in positive
+			seg_param = 1.0f;
+			diff	 -= cap_dir;
+		}
+	}
+	else {									// closes point on segment is p0
+		seg_param = 0.0f;
+	}
+
+	if (closet_on_seg) {
+		*closet_on_seg = seg_p0;
+	}
+	return diff.squaredNorm();
+}
+
+float SqrDistBoxSeg(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box,
 					const Vec3f& seg_p_0, const Vec3f& seg_p_1, 
 					Vec3f* closet_on_box, Vec3f* closet_on_seg)
 {
