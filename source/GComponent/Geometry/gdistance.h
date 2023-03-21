@@ -21,7 +21,10 @@ float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f
 					  Vec3f* closest_p_on_box = nullptr);
 
 //__declspec(dllimport)
-//float SqrDistSegSeg();
+float SqrDistSegSeg(const Vec3f& a_p0, const Vec3f& a_p1, 
+					const Vec3f& b_p0, const Vec3f& b_p1,
+					Vec3f* closest_on_a = nullptr,
+					Vec3f* closest_on_b = nullptr);
 
 }
 #endif // __GDISTANCE_H

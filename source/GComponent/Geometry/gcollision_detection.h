@@ -6,7 +6,15 @@
 
 #include <limits>
 
+#define __GJK_CHECKING_PRINTING
+#ifdef __GJK_CHECKING_PRINTING
+#include <iostream>
+#include <format>
+#endif
+
 namespace GComponent { 
+
+
 
 bool IntersectSphereSphere(float radius_A, const Vec3f& trans_A,
 						   float radius_B, const Vec3f& trans_B);
@@ -15,6 +23,7 @@ bool IntersectSphereCapsule(float radius_sphere,  const Vec3f& trans_sphere,
 							float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const Vec3f rot_cap);
 bool IntersectSphereCapsule(float radius_sphere,  const Vec3f& trans_sphere,
 							float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const SO3f& rot_cap);
+
 /// <summary>
 /// Detects whther a pair of bounding boxes intersects with each other
 /// <para>
@@ -30,6 +39,8 @@ bool IntersectSphereCapsule(float radius_sphere,  const Vec3f& trans_sphere,
 /// <returns>				val		{bool}	[out]	  相交检测的结果			</returns>
 bool IntersectOBBOBB	 (const Vec3f& half_A, const Vec3f& trans_A, const Vec3f& rot_A, 
 						  const Vec3f& half_B, const Vec3f& trans_B, const Vec3f& rot_B);
+bool IntersectOBBOBB	 (const Vec3f& half_A, const Vec3f& trans_A, const SO3f& rot_A, 
+						  const Vec3f& half_B, const Vec3f& trans_B, const SO3f& rot_B);
 
 /// <summary>
 /// Detects if a pair of obb and sphere is intersected with each other
@@ -62,9 +73,17 @@ bool IntersectOBBSphere  (const Vec3f& half_box, const Vec3f& trans_box, const S
 /// <param name="trans_cap">  cref	{vec3}  [in]	胶囊体的 3 x 1 偏移向量 </param>
 /// <param name="rot_cap">    cref  {vec3}  [in]	胶囊体的 3 x 1 旋转向量 </param>
 /// <returns>				  val   {bool}  [out]   相交检测的结果		    </returns>
-bool IntersectOBBCaspsule(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
-						  float radius, float half_height, const Vec3f& trans_cap, const Vec3f rot_cap);
+bool IntersectOBBCapsule(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
+						  float radius, float half_height, const Vec3f& trans_cap, const Vec3f& rot_cap);
+bool IntersectOBBCapsule(const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box, 
+						  float radius, float half_height, const Vec3f& trans_cap, const SO3f& rot_cap);
 
+bool IntersectCapsuleCapsule(float radius_a,	   float half_height_a, 
+							 const Vec3f& trans_a, const SO3f& rot_a,
+							 float radius_b,	   float half_height_b,
+							 const Vec3f& trans_b, const SO3f& rot_b);
+
+/*__________________________________________ GJK Related Methods ________________________________________*/
 template<IsConvex ConvexA, IsConvex ConvexB>
 bool IntersectGJK		(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir);
 
@@ -94,16 +113,18 @@ bool IntersectGJK(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir)
 	Vec3f closest     = search_dir;
 	Vec3f closest_dir = closest.normalized();
 
-	float eps = std::numeric_limits<float>::epsilon();
-
+	float eps = 1e-4f;
+#ifdef __GJK_CHECKING_PRINTING
+	int   iter = 1;
+#endif
 	do {
 		prev_dist = dist;
 
-		Vec3f support_a = a.Support(-search_dir);
-		Vec3f support_b = b.Support(search_dir);
+		Vec3f support_a = a.Support(-closest_dir);
+		Vec3f support_b = b.Support(closest_dir);
 		Vec3f support   = support_a - support_b;
 		
-		assert(simplex_size < 4 && "Simplex dimension not greater than 4");
+		assert(simplex_size < 4, "Simplex dimension not greater than 4");
 
 		A[simplex_size] = support_a;
 		B[simplex_size] = support_b;
@@ -113,9 +134,19 @@ bool IntersectGJK(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir)
 		closest = NearestSimplex(Q, A, B, simplex_size, support);
 		dist = closest.norm();
 		closest_dir = closest / dist;
+
+#ifdef __GJK_CHECKING_PRINTING
+		std::cout << std::format(
+			"iter {:<3}:\n", iter++
+		);
+		std::cout << "closest   : " << closest.transpose()   << std::endl;
+		std::cout << "support_a : " << support_a.transpose() << std::endl;
+		std::cout << "support_b : " << support_b.transpose() << std::endl;
+		std::cout << "support   : " << support.transpose()   << std::endl;
+#endif
 	} while (prev_dist > dist && dist > eps);
 
-	return false;
+	return dist <= eps;
 }
 
 }

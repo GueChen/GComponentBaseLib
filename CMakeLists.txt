@@ -2,8 +2,10 @@ cmake_minimum_required (VERSION 3.8)
 
 set(TARGET_NAME common_lib)
 
-file(GLOB_RECURSE HEADER_FILES "*.h" "*.hpp")
-file(GLOB_RECURSE SOURCE_FILES "*.c" "*.cpp")
+file(GLOB_RECURSE HEADER_FILES "source/*.h" "source/*.hpp")
+file(GLOB_RECURSE SOURCE_FILES "source/*.c" "source/*.cpp")
+#____________________ Keep File Path Structrue ________________________________________
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${HEADER_FILES} ${SOURCE_FILES})
 
 find_package(glad REQUIRED)
 find_package(GLM REQUIRED)
@@ -16,6 +18,7 @@ set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 set_property(TARGET ${TARGET_NAME} PROPERTY LINKER_LANGUAGE CXX)
 
 target_include_directories(${TARGET_NAME} PUBLIC
+	source
 	${GLM_INCLUDE_DIR}
 	${GLFW3_INCLUDE_DIR}
 	${EIGEN_INCLUDE_DIR}
@@ -34,3 +37,5 @@ target_include_directories(
 	PUBLIC
 	"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 )
+
+add_subdirectory("Test")

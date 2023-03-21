@@ -508,6 +508,107 @@ float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f
 	return sqr_dist;
 }
 
+/// reference from https://www.geometrictools.com/Documentation/DistanceLine3Line3.pdf
+float SqrDistSegSeg(const Vec3f& a_p0, const Vec3f& a_p1, const Vec3f& b_p0, const Vec3f& b_p1, Vec3f* closest_on_a, Vec3f* closest_on_b)
+{
+	const Vec3f seg_a = a_p1 - a_p0, seg_b = b_p1 - b_p0;
+	const Vec3f diff = a_p0 - b_p0;
+
+	float a = seg_a.squaredNorm(),
+		b = seg_a.dot(seg_b),
+		c = seg_b.squaredNorm(),
+		d = seg_a.dot(diff),
+		e = seg_b.dot(diff),
+		f = diff.squaredNorm();
+	float delta = a * c - b * b;
+
+	constexpr const float kEpsilon = 1e-6f;
+
+	float sqr_dist = 0.0f;
+	float s = -1.0f, t = -1.0f;
+
+	if (delta <= kEpsilon) {	// two lines parallel
+		if (e <= kEpsilon) {
+			s = (-d < kEpsilon ? 0.0f : (-d >= a ? 1.0f : -d / a));
+			t = 0.0f;
+		}
+		else if (e >= c) {
+			s = (b - d <= kEpsilon ? 0.0f : (b - d >= a ? 1 : (b - d) / a));
+			t = 1.0f;
+		}
+		else {
+			s = 0.0f;
+			t = e / c;
+		}
+	}
+	else {					// non-parallel
+		float bte = b * e, ctd = c * d;
+		if (bte <= ctd) {			// param_a <= 0.0
+			if (e <= kEpsilon) {	// region 6
+				s = (-d >= a ? 1 : (-d > kEpsilon ? -d / a : 0));
+				t = 0.0f;
+			}
+			else if (e < c) {		// region 5
+				s = 1;
+				t = e / c;
+			}
+			else {					// region 4
+				s = (b - d >= a ? 1 : (b - d > 0 ? (b - d) / a : 0));
+				t = 1;
+			}
+		}
+		else {	// s > 0
+			s = bte - ctd;
+			if (s >= delta) {
+				if (float temp = b + e;
+					temp <= 0) {	// region 8
+					s = (-d <= 0 ? 0 : (-d < a ? -d / a : 1));
+					t = 0;
+				}
+				else if (temp < c) {// region 1
+					s = 1;
+					t = temp / c;
+				}
+				else {				// region 2
+					s = (b - d <= 0 ? 0 : (b - d < a ? (b - d) / a : 1.0f));
+					t = 1;
+				}
+			}
+			else {
+				float ate = a * e, btd = b * d;
+				if (ate <= btd) {	// region 7
+					s = (-d <= 0 ? 0 : (-d >= a ? 1 : -d / a));
+					t = 0.0f;
+				}
+				else {
+					t = ate - btd;
+					if (t >= delta) {// region 3
+						s = (b - d <= 0 ? 0 : (b - d >= a ? 1 : (b - d) / a));
+					}
+					else {			 // region 0
+						s /= delta;
+						t /= delta;
+					}
+				}
+			}
+		}
+	}
+
+	assert(0.0 <= s && s <= 1.0f);
+	assert(0.0 <= t && t <= 1.0f);
+
+	Vec3f closest_a = (1.0 - s) * a_p0 + s * a_p1;
+	Vec3f closest_b = (1.0 - t) * b_p0 + t * b_p1;
+	if (closest_on_a) {
+		*closest_on_a = closest_a;
+	}
+	if (closest_on_b) {
+		*closest_on_b = closest_b;
+	}
+
+	return (closest_a - closest_b).squaredNorm();
+}
+
 }
 
 

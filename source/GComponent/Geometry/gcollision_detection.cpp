@@ -1,8 +1,10 @@
-#include "gcollision_detection.h"
-#include "gdistance.h"
+#include "GComponent/Geometry/gcollision_detection.h"
+#include "GComponent/Geometry/gdistance.h"
 
 #include <GComponent/gtransform.hpp>
 #include <GComponent/GNumerical.hpp>
+
+#include <Eigen/Geometry>
 
 static Vec3f NearestPointTriangle(Vec3f* Q, const uint32_t& out_plane_4, uint32_t* indices, uint32_t& size)
 {
@@ -101,7 +103,12 @@ uint32_t GComponent::PointOutsideOfPlane4(const Vec3f& a, const Vec3f& b, const 
 // reference from Nvidia PhysX GuIntersectionBoxBox
 bool GComponent::IntersectOBBOBB(const Vec3f& half_a, const Vec3f& trans_a, const Vec3f& rot_a, const Vec3f& half_b, const Vec3f& trans_b, const Vec3f& rot_b)
 {	
-	const SO3f  mat_a = Roderigues(rot_a), mat_b = Roderigues(rot_b);	// rotation matrix
+	return IntersectOBBOBB(half_a, trans_a, Roderigues(rot_a), half_b, trans_b, Roderigues(rot_b));
+}
+
+bool GComponent::IntersectOBBOBB(const Vec3f& half_a, const Vec3f& trans_a, const SO3f& rot_a, const Vec3f& half_b, const Vec3f& trans_b, const SO3f& rot_b)
+{
+	const SO3f  mat_a = rot_a, mat_b = rot_b;							// rotation matrix
 	const Vec3f t_w = trans_b - trans_a;								// center bias vector
 	const Vec3f t_a = mat_a.transpose() * t_w;							// A frame center vector expression
 	const SO3f  mat = mat_a.transpose() * mat_b;						// A frame B rot expression => R_B^A
@@ -190,7 +197,6 @@ bool GComponent::IntersectOBBOBB(const Vec3f& half_a, const Vec3f& trans_a, cons
 	if (t > ra + rb) return false;
 
 	return true;
-	
 }
 
 bool GComponent::IntersectOBBSphere(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, float radius_sphere, const Vec3f& trans_sphere)
@@ -249,11 +255,28 @@ bool GComponent::IntersectOBBSphere(const Vec3f& half_box, const Vec3f& trans_bo
 	return true;
 }
 
-bool GComponent::IntersectOBBCaspsule(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
-									  float radius, float half_height, const Vec3f& trans_cap, const Vec3f rot_cap)
+bool GComponent::IntersectOBBCapsule(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box, 
+									  float radius, float half_height, const Vec3f& trans_cap, const Vec3f& rot_cap)
 {
 	Vec3f half_vector = half_height * Roderigues(rot_cap) * Vec3f::UnitZ();
 	return GComponent::SqrDistBoxSeg(half_box, trans_box, rot_box, trans_cap - half_vector, trans_cap + half_vector) <= radius * radius;
+}
+
+bool GComponent::IntersectOBBCapsule(const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box, 
+									 float radius, float half_height, const Vec3f& trans_cap, const SO3f& rot_cap)
+{
+	Vec3f half_vector = half_height * rot_cap * Vec3f::UnitZ();
+	return GComponent::SqrDistBoxSeg(half_box, trans_box, LogMapSO3Toso3(rot_box), 
+									 trans_cap - half_vector, trans_cap + half_vector) <= radius * radius;
+}
+
+bool GComponent::IntersectCapsuleCapsule(float radius_a, float half_height_a, const Vec3f& trans_a, const SO3f& rot_a, float radius_b, float half_height_b, const Vec3f& trans_b, const SO3f& rot_b)
+{
+	Vec3f half_vector_a = half_height_a * rot_a * Vec3f::UnitZ();
+	Vec3f half_vector_b = half_height_b * rot_b * Vec3f::UnitZ();
+	float safe_dist = radius_a + radius_b;
+	return SqrDistSegSeg(trans_a - half_vector_a, trans_a + half_vector_a, 
+						 trans_b - half_vector_b, trans_b + half_vector_b) <= safe_dist * safe_dist;
 }
 
 Vec3f GComponent::NearestSimplex(Vec3f* Q, Vec3f* A, Vec3f* B, uint32_t& size, Vec3f& support)
@@ -279,13 +302,13 @@ Vec3f GComponent::NearestSegment(Vec3f* Q, uint32_t& size)
 	Vec3f ab = b - a,
 		  ao =   - a;
 	
-	float ab_length = ab.norm();								// 长度过短退化为点
-	if (ab_length < std::numeric_limits<float>::epsilon()) {	// degenerate to single point
+	float sq_ab_length = ab.squaredNorm();								// 长度过短退化为点
+	if (sq_ab_length < std::numeric_limits<float>::epsilon()) {	// degenerate to single point
 		size = 1;
 		return Q[0];
 	}
 
-	float scale = Clamp(ao.dot(ab / ab_length), 0.0f, 1.0f);
+	float scale = Clamp(ao.dot(ab) / sq_ab_length, 0.0f, 1.0f);
 
 	return a + scale * ab;
 }
@@ -404,7 +427,7 @@ float GComponent::NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint3
 	if (vc <= 0 && d1 >= 0 && d3 <= 0) {		// the closest point in ab edge segment
 		float recip = d1 - d3;
 		if (abs(recip) > std::numeric_limits<float>::epsilon()) {
-			closest = d1 / recip * ab + a; 
+			closest = d1 * recip * ab + a; 
 		}
 		else {
 			closest = a;
