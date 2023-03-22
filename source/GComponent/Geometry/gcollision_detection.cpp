@@ -320,8 +320,8 @@ Vec3f GComponent::NearestTriangle(Vec3f* Q, Vec3f* A, Vec3f* B, uint32_t& size)
 		  ac	= c - a,
 		  ab_ac = ab.cross(ac);
 
-	float area  = ab_ac.norm();
-	if (area < std::numeric_limits<float>::epsilon()) {	// three point on one same line 
+	if (float norm_length = ab_ac.squaredNorm();		// three point on one same line 
+		norm_length < std::numeric_limits<float>::epsilon()) {	
 		size = 2;										// degenerate to segment
 		return NearestSegment(Q, size);
 	}
@@ -404,7 +404,7 @@ float GComponent::NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint3
 				vc = n.dot(cross_ab);
 	
 	// size = 3
-	if (va > 0 && vb > 0 && vc > 0) {
+	if (va >= 0 && vb >= 0 && vc >= 0) {
 		closest = n.dot(a) / n_sqrt * n;
 		return closest.dot(closest);
 	}
@@ -427,14 +427,14 @@ float GComponent::NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint3
 	if (vc <= 0 && d1 >= 0 && d3 <= 0) {		// the closest point in ab edge segment
 		float recip = d1 - d3;
 		if (abs(recip) > std::numeric_limits<float>::epsilon()) {
-			closest = d1 * recip * ab + a; 
+			closest = d1 / recip * ab + a; 
 		}
 		else {
 			closest = a;
 		}
 		return closest.dot(closest);
 	}
-	else if (va <= 0 && d4 >= d3 && 0 <= d6) {	// the closest point in bc edge segment
+	else if (va <= 0 && d4 >= d3 && d6 <= d5) {	// the closest point in bc edge segment
 		float recip = unom + udenom;
 		if (abs(recip) > std::numeric_limits<float>::epsilon()) {
 			closest = d2 / recip * bc + b;
@@ -448,7 +448,7 @@ float GComponent::NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint3
 	}
 	else if (vb <= 0 && d2 >= 0 && d6 <= 0) {	// the closest point in ac edge segment
 		float recip = d2 - d6;
-		if (recip > std::numeric_limits<float>::epsilon()) {
+		if (abs(recip) > std::numeric_limits<float>::epsilon()) {
 			closest = d2 / recip * ac + a;
 		}
 		else {
