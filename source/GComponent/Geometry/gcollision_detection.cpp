@@ -52,7 +52,6 @@ static Vec3f NearestPointTriangle(Vec3f* Q, const uint32_t& out_plane_4, uint32_
 	return closest;
 }
 
-
 constexpr static const float kEpsilon = 1e-5;
 /*
 *  
@@ -87,15 +86,15 @@ uint32_t GComponent::PointOutsideOfPlane4(const Vec3f& a, const Vec3f& b, const 
 				bd = d - b,
 				bc = c - b;
 
-	const Vec3f v0 = ab.cross(ac),
+	const Vec3f v0 = ab.cross(ac),	// abc plane normal vector
 				v1 = ac.cross(ad),
 				v2 = ad.cross(ab),
 				v3 = bd.cross(bc);
 
-	bit_map |= ((v0.dot(a) * v0.dot(d) > 0) << 0);
-	bit_map |= ((v1.dot(a) * v1.dot(b) > 0) << 1);
-	bit_map |= ((v2.dot(a) * v2.dot(c) > 0) << 2);
-	bit_map |= ((v3.dot(a) * v3.dot(b) > 0) << 3);
+	bit_map |= ((v0.dot(a) * v0.dot(d) >= -std::numeric_limits<float>::epsilon()) << 0);		// this part indicate whether oa, od in the same dir for norm of abc plane
+	bit_map |= ((v1.dot(a) * v1.dot(b) >= -std::numeric_limits<float>::epsilon()) << 1);
+	bit_map |= ((v2.dot(a) * v2.dot(c) >= -std::numeric_limits<float>::epsilon()) << 2);
+	bit_map |= ((v3.dot(a) * v3.dot(b) >= -std::numeric_limits<float>::epsilon()) << 3);
 
 	return bit_map;
 }
@@ -358,13 +357,13 @@ Vec3f GComponent::NearestTetrahedron(Vec3f* Q, Vec3f* A, Vec3f* B, uint32_t& siz
 				ac = c - a,
 				ad = d - a,
 				n  = ab.cross(ac).normalized();
-	if (abs(n.dot(ad)) < 1e-4) {	// degenerated to triangle case
+	if (abs(n.dot(ad)) < std::numeric_limits<float>::epsilon()) {	// degenerated to triangle case
 		size = 3;
 		return NearestTriangle(Q, A, B, size);
 	}
 
-	bool out_plane = PointOutsideOfPlane4(a, b, c, d);
-	if (out_plane) {
+	uint32_t out_plane = PointOutsideOfPlane4(a, b, c, d);
+	if (!out_plane) {											    // checking whether all false		
 		return Vec3f::Zero();
 	}
 

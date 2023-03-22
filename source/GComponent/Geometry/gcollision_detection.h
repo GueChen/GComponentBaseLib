@@ -6,7 +6,6 @@
 
 #include <limits>
 
-#define __GJK_CHECKING_PRINTING
 #ifdef __GJK_CHECKING_PRINTING
 #include <iostream>
 #include <format>
