@@ -3,6 +3,7 @@
 
 #include <GComponent/types.h>
 #include <Concept/gconcept.hpp>
+#include <GComponent/Geometry/gjk_convex.h>
 
 #include <limits>
 
@@ -12,8 +13,6 @@
 #endif
 
 namespace GComponent { 
-
-
 
 bool IntersectSphereSphere(float radius_A, const Vec3f& trans_A,
 						   float radius_B, const Vec3f& trans_B);
@@ -98,8 +97,6 @@ float NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint32_t* indices
 
 uint32_t PointOutsideOfPlane4(const Vec3f& a, const Vec3f& b, const Vec3f& c, const Vec3f& d);
 
-bool IntersectEPA();
-
 template<IsConvex ConvexA, IsConvex ConvexB>
 bool IntersectGJK(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir)
 {
@@ -147,6 +144,12 @@ bool IntersectGJK(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir)
 
 	return dist <= eps;
 }
+
+GJKStatus EpaPenetration(GJKOutput& output, 
+						 const GJKConvex& a, 
+						 const GJKConvex& b, 
+						 std::vector<Vec3f>& simplex_a, 
+						 std::vector<Vec3f>& simplex_b);
 
 }
 #endif // !__GCOLLISION_DETECTION_H
