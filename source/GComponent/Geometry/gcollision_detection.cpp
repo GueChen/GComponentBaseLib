@@ -7,6 +7,7 @@
 #include <Eigen/Geometry>
 
 constexpr static const float kEpsilon = 1e-5;
+
 /*
 *  
 *				Methods Implementations

@@ -14,7 +14,7 @@ find_package(Eigen3 REQUIRED)
 
 add_library(${TARGET_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
-set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD z)
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 set_property(TARGET ${TARGET_NAME} PROPERTY LINKER_LANGUAGE CXX)
 
 target_include_directories(${TARGET_NAME} PUBLIC
