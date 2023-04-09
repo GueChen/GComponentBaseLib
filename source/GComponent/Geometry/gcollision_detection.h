@@ -265,12 +265,7 @@ GJKStatus PenetrationGJK(GJKOutput&			 output,
 			  support_b = b.Support( closest_dir);
 		Vec3f support   = support_a - support_b;
 		
-		float sign_dist = support.dot(closest_dir);
-		if (sign_dist > (1 - kEps) * dist) {
-			//assert(false && "This branch not pass any Tests");
-			store_result();
-			return GJK_CONTACT;
-		}
+		float sign_dist = support.dot(closest_dir);	
 
 		simplex_a.push_back(support_a);
 		simplex_b.push_back(support_b);
@@ -286,14 +281,10 @@ GJKStatus PenetrationGJK(GJKOutput&			 output,
 
 	if (dist > kEps) {
 		store_result();
-		return GJK_NON_INTERSECT;
+		return NON_INTERSECT;
 	}
-	//else if (prev_dist <= dist) {
-	//	store_result();
-	//	return GJK_DEGENERATE;
-	//}
 	else {
-		return EPA_CONTACT;
+		return CONTACT;
 	}	
 }
 
@@ -305,9 +296,8 @@ bool	  PenetrationGjkEpa(GJKOutput	 &	 result,
 	std::vector<Vec3f> polytope, poly_a, poly_b;
 	GJKStatus status = PenetrationGJK(result, a, b, search_dir, polytope, poly_a, poly_b);
 	switch (status) {
-	case GJK_NON_INTERSECT: return false;	
-	case GJK_CONTACT:
-	case EPA_CONTACT: {
+	case NON_INTERSECT: return false;		
+	case CONTACT: {
 		status = PenetrationEPA(result, a, b, polytope, poly_a, poly_b);
 		return status != EPA_FAIL;
 	}			
