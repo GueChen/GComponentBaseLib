@@ -17,7 +17,7 @@
 #endif
 
 namespace GComponent { 
-/*__________________________________________ Basic Geometries Overlap Methods _____________________________*/
+/*______________________________________ Basic Geometries Intersection Checking Methods _____________________________*/
 
 /// <summary>
 /// 检测一对球体是否相交
@@ -130,15 +130,6 @@ bool IntersectCapsuleCapsule(float radius_a,	   float half_height_a,
 template<IsConvex ConvexA, IsConvex ConvexB>
 bool	  IntersectGJK		(const ConvexA& a, const ConvexB& b, const Vec3f& search_dir);
 
-template<IsConvex ConvexA, IsConvex ConvexB>
-GJKStatus PenetrationGJK	(GJKOutput&			 output, 
-							 const ConvexA&		 a, 
-							 const ConvexB&		 b,
-							 const Vec3f&		 search_dir,
-							 std::vector<Vec3f>& simplex,
-							 std::vector<Vec3f>& simplex_a, 
-							 std::vector<Vec3f>& simplex_b);
-
 Vec3f	  NearestSimplex	(std::vector<Vec3f>& simplex, std::vector<Vec3f>& simplex_a, std::vector<Vec3f>& simplex_b, Vec3f& support);
 Vec3f	  NearestSimplex	(Vec3f* Q, Vec3f* A, Vec3f* B, uint32_t& size, Vec3f& support);
 
@@ -157,6 +148,36 @@ float	  NearestTriangleBaryCentric(Vec3f& a, Vec3f& b, Vec3f& c, uint32_t* indic
 
 uint32_t  PointOutsideOfPlane4(const Vec3f& a, const Vec3f& b, const Vec3f& c, const Vec3f& d);
 
+
+/*______________________________________ Penetration Caculation Methods _____________________________*/
+
+bool PenetrationSphereSphere (PenetrationOutput& output,
+							  float radius_A, const Vec3f& trans_A,
+							  float radius_B, const Vec3f& trans_B);
+
+bool PenetrationSphereCapsule(PenetrationOutput& output,
+							  float radius_sphere,  const Vec3f& trans_sphere,
+							  float radius_capsule, float half_height_capsule, const Vec3f& trans_cap, const SO3f& rot_cap);
+
+bool PenetrationOBBOBB		 (PenetrationOutput& output,
+							  const Vec3f& half_A, const Vec3f& trans_A, const SO3f& rot_A,
+							  const Vec3f& half_B, const Vec3f& trans_B, const SO3f& rot_B);
+
+bool PenetrationOBBSphere	 (PenetrationOutput& output, 
+							  const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box,
+							  float radius_sphere,   const Vec3f& trans_sphere);
+
+bool PenetrationOBBCapsule	 (PenetrationOutput& output, 
+							  const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box,
+							  float radius, float half_height, const Vec3f& trans_cap, const SO3f& rot_cap);
+
+bool PenetrationCapsuleCapsule(PenetrationOutput& output,
+							   float radius_a,	   float half_height_a, 
+							   const Vec3f& trans_a, const SO3f& rot_a,
+							   float radius_b,	   float half_height_b,
+							   const Vec3f& trans_b, const SO3f& rot_b);
+
+/*______________________________________ GJK Related Penetration Methods ____________________________*/
 void	  GetClosestPoint	  (Vec3f&					 closest_a,
 							   Vec3f&					 closest_b,
 							   const std::vector<Vec3f>& simplex, 
@@ -165,19 +186,26 @@ void	  GetClosestPoint	  (Vec3f&					 closest_a,
 							   const Vec3f&				 closest);
 
 template<IsConvex ConvexA, IsConvex ConvexB>
-bool	  PenetrationGjkEpa(
-						GJKOutput&		 output,
-						const ConvexA&   a,
-						const ConvexB&   b,
-						const Vec3f&     search_dir);
+bool	  PenetrationGjkEpa(PenetrationOutput& output,
+							const ConvexA&	   a,
+							const ConvexB&	   b,
+							const Vec3f&	   search_dir);
 
+template<IsConvex ConvexA, IsConvex ConvexB>
+GJKStatus PenetrationGJK	(GJKOutput&			 output, 
+							 const ConvexA&		 a, 
+							 const ConvexB&		 b,
+							 const Vec3f&		 search_dir,
+							 std::vector<Vec3f>& simplex,
+							 std::vector<Vec3f>& simplex_a, 
+							 std::vector<Vec3f>& simplex_b);
 
-GJKStatus PenetrationEPA(GJKOutput				 &	 output, 
-						 const GJKConvex		 &	 a, 
-						 const GJKConvex		 &	 b,
-						 const std::vector<Vec3f>& simplex,
-						 const std::vector<Vec3f>& simplex_a, 
-						 const std::vector<Vec3f>& simplex_b);
+GJKStatus PenetrationEPA	(GJKOutput				 &	 output, 
+							 const GJKConvex		 &	 a, 
+							 const GJKConvex		 &	 b,
+							 const std::vector<Vec3f>& simplex,
+							 const std::vector<Vec3f>& simplex_a, 
+							 const std::vector<Vec3f>& simplex_b);
 
 
 
@@ -289,16 +317,21 @@ GJKStatus PenetrationGJK(GJKOutput&			 output,
 }
 
 template<IsConvex ConvexA, IsConvex ConvexB>
-bool	  PenetrationGjkEpa(GJKOutput	 &	 result,
-						const ConvexA&   a,
-						const ConvexB&   b,
-						const Vec3f&     search_dir){	
+bool PenetrationGjkEpa(PenetrationOutput&	result,
+					   const ConvexA&		a,
+					   const ConvexB&		b,
+					   const Vec3f&			search_dir){	
 	std::vector<Vec3f> polytope, poly_a, poly_b;
-	GJKStatus status = PenetrationGJK(result, a, b, search_dir, polytope, poly_a, poly_b);
+	GJKOutput output;
+	GJKStatus status = PenetrationGJK(output, a, b, search_dir, polytope, poly_a, poly_b);
 	switch (status) {
 	case NON_INTERSECT: return false;		
 	case CONTACT: {
-		status = PenetrationEPA(result, a, b, polytope, poly_a, poly_b);
+		status = PenetrationEPA(output, a, b, polytope, poly_a, poly_b);
+		result.closest_a = output.closest_a;
+		result.closest_b = output.closest_b;
+		result.normal    = output.normal;
+		result.depth	 = output.depth;
 		return status != EPA_FAIL;
 	}			
 	default:

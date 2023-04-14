@@ -415,7 +415,7 @@ float SqrDistPointSeg(const Vec3f& point, const Vec3f& seg_p0, const Vec3f& seg_
 	}
 
 	if (closet_on_seg) {
-		*closet_on_seg = seg_p0;
+		*closet_on_seg = seg_p0 + seg_param * cap_dir;
 	}
 	return diff.squaredNorm();
 }
@@ -476,11 +476,16 @@ float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f
 					  const Vec3f& point,													// point params
 					  Vec3f* closest_p_on_box)
 {
-	const Vec3f t_w     = point - trans_box;
-	const SO3f  rot_mat = Roderigues(rot_box);
-	const Vec3f t_box   = rot_mat.transpose() * t_w;
-	
-	Vec3f closest = Vec3f::Zero();
+	const SO3f rot_mat = Roderigues(rot_box);
+	return SqrDistBoxPoint(half_box, trans_box, rot_mat, point, closest_p_on_box);
+}
+
+float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_mat, const Vec3f& point, Vec3f* closest_p_on_box)
+{
+	const Vec3f t_w = point - trans_box;	
+	const Vec3f t_box = rot_mat.transpose() * t_w;
+
+	Vec3f closest = t_box;
 	float sqr_dist = 0.0f;
 
 	for (int i = 0; i < 3; ++i) {
@@ -493,7 +498,7 @@ float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f
 		// 检测点为负值且小于盒子边界
 		if (t_box(i) < -half_box(i)) {
 			float delta = half_box(i) + t_box(i);			// half_i > 0 , t_box_i < 0
-			sqr_dist  += delta * delta;
+			sqr_dist += delta * delta;
 			closest(i) = -half_box(i);
 		}
 		else if (t_box(i) > half_box(i)) {
@@ -503,9 +508,9 @@ float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f
 		}
 	}
 	if (closest_p_on_box) {
-		*closest_p_on_box = rot_mat * closest;
+		*closest_p_on_box = rot_mat * closest + trans_box;
 	}
-	return sqr_dist;
+	return sqr_dist;	
 }
 
 /// reference from https://www.geometrictools.com/Documentation/DistanceLine3Line3.pdf
