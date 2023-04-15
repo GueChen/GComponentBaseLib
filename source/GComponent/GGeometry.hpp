@@ -54,8 +54,18 @@ inline double Lerp(double d1, double d2, double t)
     return (1 - t) * d1 + t * d2;
 }
 
-inline float Lerp(float d1, float d2, float t) {
-	return (1 - t) * d1 + t * d2;
+/// <summary>
+/// (1 - t) * a + t * b
+/// <para>
+/// ÏßĞÔ²åÖµ
+/// </para>
+/// </summary>
+/// <param name="a"></param>
+/// <param name="b"></param>
+/// <param name="t"></param>
+/// <returns></returns>
+inline float Lerp(float a, float b, float t) {
+	return (1 - t) * a + t * b;
 }
 
 /// <summary>

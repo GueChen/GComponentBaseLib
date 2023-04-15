@@ -380,7 +380,7 @@ static float SqrDistBoxLine(const Vec3f& half_box, const Vec3f& trans_box, const
 				ori_local(i) = -ori_local(i);
 			}
 		}
-		*closet_on_box = ori_local;
+		*closet_on_box = rot_mat_inv.transpose() * ori_local + trans_box;
 	}
 
 	return sqrt_dist;
@@ -470,6 +470,14 @@ float SqrDistBoxSeg(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& 
 	}
 
 	return 0.0f;
+}
+
+float SqrDistBoxSeg(const Vec3f& half_box, const Vec3f& trans_box, const SO3f& rot_box, const Vec3f& seg_p_0, const Vec3f& seg_p_1, Vec3f* closet_on_box, Vec3f* closet_on_seg)
+{
+
+	return SqrDistBoxSeg(half_box, trans_box, LogMapSO3Toso3(rot_box), 
+						 seg_p_0, seg_p_1, 
+						 closet_on_box, closet_on_seg);
 }
 
 float SqrDistBoxPoint(const Vec3f& half_box, const Vec3f& trans_box, const Vec3f& rot_box,	// box params
