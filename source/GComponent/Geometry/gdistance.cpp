@@ -6,7 +6,7 @@
 namespace GComponent {
 
 static float SqrDistFaceToPoint(int i0, int i1, int i2, const Vec3f& half_box, const Vec3f& pos_box_cor, Vec3f& pos, const Vec3f& dir, float* seg_param) {
-	Vec3f p_to_neg_half = pos + half_box;
+	Vec3f p_to_neg_half = pos + half_box;	
 	float sqrt_dist = 0.0f;
 	if (dir(i0) * p_to_neg_half(i1) >= dir(i1) * pos_box_cor(i0)) {
 		if (dir(i0) * p_to_neg_half(i2) >= dir(i2) * pos_box_cor(i0)) {
@@ -176,27 +176,21 @@ static float SqrDistBoxThreeDirLine(const Vec3f& half_box, Vec3f& line_pos, Vec3
 	// 
 	// Not make sense this part 
 	// ----------------------------------------------
-	Vec3f pos_box_cor = line_pos - half_box;
+	const Vec3f pos_box_cor = line_pos - half_box;
+	const Vec3f cross = pos_box_cor.cross(line_dir);	
 	float sqrt_dist;
-
-	float prod_px_dy = pos_box_cor.x() * line_dir.y();
-	float prod_py_dx = pos_box_cor.y() * line_dir.x();
-	if (prod_px_dy >= prod_py_dx) {									// x <====> y		
-		float prod_px_dz = pos_box_cor.x() * line_dir.z();
-		float prod_pz_dx = pos_box_cor.z() * line_dir.x();
-		if (prod_px_dz >= prod_pz_dx) {								// x <====> z
-			// first intersects x = half_x
-			sqrt_dist = SqrDistFaceToPoint(0, 1, 2, half_box, pos_box_cor, line_pos, line_dir, seg_param);
-		}
-		else {
+	if (cross.z() >= 0) {									// x <====> y				
+		if (cross.y() >= 0) {								// x <====> z
 			// first intersects z = half_z
 			sqrt_dist = SqrDistFaceToPoint(2, 0, 1, half_box, pos_box_cor, line_pos, line_dir, seg_param);
 		}
+		else {
+			// first intersects x = half_x
+			sqrt_dist = SqrDistFaceToPoint(0, 1, 2, half_box, pos_box_cor, line_pos, line_dir, seg_param);
+		}
 	}
-	else {
-		float prod_py_dz = pos_box_cor.y() * line_dir.z();
-		float prod_pz_dy = pos_box_cor.z() * line_dir.y();
-		if (prod_py_dz >= prod_pz_dy) {
+	else {		
+		if (cross.x() >= 0) {
 			// intersects y = half_y
 			sqrt_dist = SqrDistFaceToPoint(1, 2, 0, half_box, pos_box_cor, line_pos, line_dir, seg_param);
 		}
@@ -372,7 +366,7 @@ static float SqrDistBoxLine(const Vec3f& half_box, const Vec3f& trans_box, const
 				sqrt_dist = SqrDistBoxThreeDirLine(half_box, ori_local, dir_local, seg_param);			// 直线存在 x y z 方向
 			}
 		}
-	}
+	} 
 
 	if (closet_on_box) {
 		for (unsigned int i = 0; i < 3; ++i) {

@@ -117,7 +117,7 @@ bool PenetrationOBBSphere(PenetrationOutput& output, const Vec3f& half_box, cons
 	float sqr = SqrDistBoxPoint(half_box, trans_box, rot_box, trans_sphere, &closest_on_box);
 	// outside box
 	if (sqr > 0) {
-		Vec3f diff		 = trans_sphere - closest_on_box,
+		Vec3f diff		 = closest_on_box - trans_sphere,
 			  diff_dir	 = diff.normalized();
 
 		output.normal	 = diff_dir;
