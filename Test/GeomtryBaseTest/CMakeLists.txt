@@ -1,6 +1,10 @@
 cmake_minimum_required (VERSION 3.8)
 
+# help Add Testing function
+# ARGV0 -- executable name
+# ARGV1 -- compile files
 function(AddGeometryTest arg)
+
 	add_executable(${ARGV0} ${ARGV1})
 
 	set_property(TARGET		   ${ARGV0} PROPERTY CXX_STANDARD 20)

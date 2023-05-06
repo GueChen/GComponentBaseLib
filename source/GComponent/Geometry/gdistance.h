@@ -2,7 +2,7 @@
 #define __GDISTANCE_H
 
 #include <GComponent/types.h>
-
+#include <Eigen/Dense>
 namespace GComponent{
 
 /// <summary>

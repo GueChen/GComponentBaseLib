@@ -7,3 +7,4 @@ enable_testing()
 
 add_subdirectory("NearestSimplexTest")
 add_subdirectory("GeomtryBaseTest")
+add_subdirectory("CurvesTest")

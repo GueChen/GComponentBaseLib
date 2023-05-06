@@ -22,6 +22,8 @@ using Vec3d      = Eigen::Vector3d;
 using Vec3f      = Eigen::Vector3f;
 using Vec3dT     = Eigen::Matrix<double, 1, 3>;
 using Twistd     = Eigen::Matrix<double, 6, 1>;
+template<class Scalar>
+using DynMatrix  = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
 using DynMatrixd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 
 #endif // !__TYPES_GCOM_H

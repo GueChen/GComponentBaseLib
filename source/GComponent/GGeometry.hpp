@@ -13,6 +13,9 @@
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#ifdef  _DEBUG
+#include <iostream>
+#endif //  __DEBUG
 
 // TODO: add comments
 namespace GComponent
@@ -423,7 +426,7 @@ template<class Scalar>
 function<Eigen::Vector3<Scalar>(Scalar)>
 GetBezierSplineFunction(const vector<Eigen::Vector3<Scalar>> & pList)
 {
-	return [pRest = pList](Scalar t)->Vec3d {
+	return [pRest = pList](Scalar t)->Eigen::Vector3<Scalar> {
 		return DeCasteljau(pRest, t);
 	};
 }
@@ -515,51 +518,55 @@ enum class BSplineNodeDefinition { Uniform, QuasiUniform, NonUniform };
 template<class _AnyVec>
 class BSpline :function<_AnyVec(double)>
 {
+	using Scalar = typename _AnyVec::Scalar;
+	using DynMat = DynMatrix<Scalar>;
 public:
 	BSpline(const vector<_AnyVec>& pList, uint32_t order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
-	_AnyVec operator()(double t);
+	_AnyVec operator()(Scalar t);
 
 private:
 	void Elevation();
 	void CalculateControlPoints(const vector<_AnyVec>& pList);
 
-	int curOrder = 0;
-	vector<vector<function<double(double)>>> _BaseFunc;
-	vector<double>  _uList;
-	vector<_AnyVec> _PList;
+	int cur_order_ = 0;
+	vector<vector<function<Scalar(Scalar)>>> base_;
+	vector<Scalar>  u_list_;
+	vector<_AnyVec> poses_;
 
 };
 
 template<class _AnyVec>
 BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, uint32_t order, bool isInterpolation, BSplineNodeDefinition mode) :
-	_PList(pList), _BaseFunc(order + 1)
-{
-
+	poses_(pList), base_(order + 1)
+{	
 	switch (const unsigned
 		N = pList.size() + order + 1,
-		PadNum = order,
-		RegionNum = N - 2 * PadNum - 1
+		pad_num = order,
+		RegionNum = N - 2 * pad_num - 1
 		; mode)
 	{
     case BSplineNodeDefinition::Uniform: {
-		const double BorderPadding = 1.0 / RegionNum * PadNum;
-		_uList = Linspace(-BorderPadding, 1.0 + BorderPadding, N);
+		const Scalar BorderPadding = 1.0 / RegionNum * pad_num;
+		u_list_ = Linspace(-BorderPadding, 
+						  static_cast<Scalar>(1.0 + BorderPadding), 
+						  N);
 		break;
 	}
     case BSplineNodeDefinition::QuasiUniform: {
-		auto temp = Linspace(0.0, 1.0, RegionNum + 1);
-		_uList.insert(_uList.cbegin(), PadNum, 0.0);
-		_uList.insert(_uList.cbegin() + PadNum, PadNum, 1.0);
-		_uList.insert(_uList.cbegin() + PadNum, temp.begin(), temp.end());
+		auto temp = Linspace(static_cast<Scalar>(0.0),
+							 static_cast<Scalar>(1.0),
+							 RegionNum + 1);
+		u_list_.insert(u_list_.cbegin(), pad_num, 0.0);
+		u_list_.insert(u_list_.cbegin() + pad_num, pad_num, 1.0);
+		u_list_.insert(u_list_.cbegin() + pad_num, temp.begin(), temp.end());
 		break;
 	}
     case BSplineNodeDefinition::NonUniform:
-
+		assert(false && "No Implementation");
 		break;
 	}
 
-
-	while (curOrder <= order)
+	while (cur_order_ <= order)
 	{
 		Elevation();
 	}
@@ -578,12 +585,12 @@ BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, uint32_t order, bool isI
 
 
 template<class _AnyVec>
-_AnyVec BSpline<_AnyVec>::operator()(double t) {
+_AnyVec BSpline<_AnyVec>::operator()(Scalar t) {
 	_AnyVec val = _AnyVec::Zero();
-	auto PIter = _PList.begin();
-	auto FIter = _BaseFunc[curOrder - 1].begin();
+	auto PIter = poses_.begin();
+	auto FIter = base_[cur_order_ - 1].begin();
 
-	for (; PIter != _PList.end(); ++PIter, ++FIter)
+	for (; PIter != poses_.end(); ++PIter, ++FIter)
 	{
 		val += (*FIter)(t) * (*PIter);
 	}
@@ -591,7 +598,7 @@ _AnyVec BSpline<_AnyVec>::operator()(double t) {
 
 	/* STL Version */
 	/*_AnyVec ZeroVal = _AnyVec::Zero();
-	return std::inner_product(_PList.begin(), _PList.end(), _BaseFunc[curOrder - 1].begin(), ZeroVal,
+	return std::inner_product(poses_.begin(), poses_.end(), base_[cur_order_ - 1].begin(), ZeroVal,
 		[](auto Val1, auto addVal)->_AnyVec {
 			return Val1 + addVal;
 		},
@@ -605,16 +612,15 @@ template<class _AnyVec>
 void
 BSpline<_AnyVec>::Elevation()
 {
-	auto& curFuncs = _BaseFunc[curOrder];
-	const int N = _uList.size() - curOrder - 1;
-	curFuncs.resize(N);
-	if (curOrder == 0)
+	auto& cur_base = base_[cur_order_];
+	const int N = u_list_.size() - cur_order_ - 1;
+	cur_base.resize(N);
+	if (cur_order_ == 0)
 	{
 		for (int i = 0; i < N; ++i)
 		{
-			curFuncs[i] =
-				[this, idx = i](double t) {
-				return _uList[idx] <= t && t < _uList[idx + 1] ? 1 : 0;
+			cur_base[i] = [this, idx = i](Scalar t)->Scalar {
+				return u_list_[idx] <= t && t < u_list_[idx + 1] ? 1 : 0;
 			};
 		}
 	}
@@ -622,38 +628,39 @@ BSpline<_AnyVec>::Elevation()
 	{
 		for (int i = 0; i < N; ++i)
 		{
-			curFuncs[i] =
-				[this, k = curOrder, idx = i](double t) {
-				double prev = _uList[idx + k] - _uList[idx];
-				double next = _uList[idx + k + 1] - _uList[idx + 1];
-				prev += prev == 0 ? 1 : 0;
-				next += next == 0 ? 1 : 0;
-				return (t - _uList[idx]) / prev * _BaseFunc[k - 1][idx](t) + (_uList[idx + k + 1] - t) / next * _BaseFunc[k - 1][idx + 1](t);
+			cur_base[i] = [this, k = cur_order_, idx = i](Scalar t)->Scalar {
+				Scalar prev = u_list_[idx + k] - u_list_[idx];
+				Scalar next = u_list_[idx + k + 1] - u_list_[idx + 1];
+				prev = (prev == 0 ? 1 : prev);
+				next = (next == 0 ? 1 : next);
+				return (t - u_list_[idx]) / prev * base_[k - 1][idx](t) + 
+					   (u_list_[idx + k + 1] - t) / next * base_[k - 1][idx + 1](t);
 			};
 		}
 	}
-	++curOrder;
+	++cur_order_;
 }
 
 template<class _AnyVec>
 void
 BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
-{
-	const int k = curOrder - 1;
-	auto& BaseFuncs = _BaseFunc[k];
-	const int N = pList_int.size();
+{	
+	auto& BaseFuncs = base_[cur_order_ - 1];
+	const int N   = pList_int.size();
 	const int DIM = pList_int.front().rows();
-	const int M = BaseFuncs.size();
-	auto InterList = Linspace(0, 1, pList_int.size());
-	DynMatrixd GetThis;
-	GetThis = DynMatrixd::Zero(N - 2, M - 2);
-	DynMatrixd Residual, catBorder;
-	Residual = DynMatrixd::Zero(N - 2, 2);
-	catBorder = DynMatrixd::Zero(2, 1);
+	const int M   = BaseFuncs.size();
+
+	auto InterList = Linspace(static_cast<Scalar>(0), 
+							  static_cast<Scalar>(1), 
+							  pList_int.size());
+
+	DynMat GetThis   = DynMat::Zero(N - 2, M - 2);
+	DynMat Residual  = DynMat::Zero(N - 2, 2);
+	DynMat catBorder = DynMat::Zero(2, 1);
 
 	for (int i = 0; i < GetThis.rows(); ++i)
 	{
-		double t_temp = InterList[i + 1];
+		Scalar t_temp = InterList[i + 1];
 		for (int j = 0; j < GetThis.cols(); ++j)
 		{
 			GetThis(i, j) = BaseFuncs[j + 1](t_temp);
@@ -662,26 +669,29 @@ BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 		Residual(i, 1) = BaseFuncs.back()(t_temp);
 	}
 
-	GaussSeidelSolver solve;
+	GaussSeidelSolver<Scalar> solve;
 	vector<_AnyVec> controlPoints(N - 2);
 	for (int dim = 0; dim < DIM; ++dim)
 	{
 		catBorder(0, 0) = pList_int.front()(dim, 0);
 		catBorder(1, 0) = pList_int.back()(dim, 0);
 
-		DynMatrixd b = DynMatrixd::Zero(N - 2, 1);
+		DynMat b = DynMat::Zero(N - 2, 1);
 		std::transform(pList_int.begin() + 1, pList_int.end() - 1, b.data(), [dim](auto& a) {return a(dim, 0); });
 		b -= Residual * catBorder;
 
 		auto x = solve(GetThis, b);
+
 		for (int i = 0; i < x.rows(); ++i)
 		{
 			controlPoints[i](dim, 0) = x(i, 0);
 		}
 	}
+
+	assert(!std::isnan(controlPoints.front().x()) && "bspline solve failed\n");
 	controlPoints.insert(controlPoints.begin(), pList_int.front());
 	controlPoints.insert(controlPoints.end(), pList_int.back());
-	_PList = controlPoints;
+	poses_ = controlPoints;
 }
 
 inline function<Twistd(double t)>
