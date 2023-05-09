@@ -9,10 +9,14 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 
+#include <magic_enum.hpp>
+
 #include <functional>
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include <string_view>
+
 #ifdef  _DEBUG
 #include <iostream>
 #endif //  __DEBUG
@@ -280,6 +284,25 @@ GetCircleFunction(const Eigen::MatrixBase<TwistDerived>& t_ini,
 	return circle_func;
 }
 
+/*________________________________________SPline Interface___________________________________*/
+enum class SplineType {
+	Cubic, 
+	Bezier,
+	BezierInter,
+	BSpline,
+	BSplineInter
+};
+
+namespace SplineName {
+	using CLiteral = const std::string_view;
+	constexpr CLiteral Cubic	    = "Cubic";
+	constexpr CLiteral Bezier	    = "Bezier";
+	constexpr CLiteral BezierInter  = "Bezier Inter";
+	constexpr CLiteral BSpline		= "BSpline";
+	constexpr CLiteral BSplineInter = "BSpline Inter";
+}
+
+
 template<Vec3Convertible Derived>
 auto
 GetCubicSplineFunction(const vector<Derived>& poses, 
@@ -422,13 +445,48 @@ DeCasteljau(const vector<Derived>& pRest, double t)
 	return DeCasteljau(pRest_new, t);
 }
 
-template<class Scalar>
-function<Eigen::Vector3<Scalar>(Scalar)>
-GetBezierSplineFunction(const vector<Eigen::Vector3<Scalar>> & pList)
+template<Vec3Convertible Derived>
+function<Eigen::Vector3<typename Derived::Scalar>(typename Derived::Scalar)>
+GetBezierSplineFunction(const vector<Derived> & poses)
 {
-	return [pRest = pList](Scalar t)->Eigen::Vector3<Scalar> {
-		return DeCasteljau(pRest, t);
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	return [poses = poses](Scalar t)->Vec3 {
+		return DeCasteljau(poses, t);
 	};
+}
+
+template<Vec6Convertible T, Vec3Convertible U>
+requires ScalarSame<T, U>
+function<Twist<typename T::Scalar>(typename T::Scalar)>
+GetBezierSplineFunctoin(const Eigen::MatrixBase<T>&	t_ini, 
+						const Eigen::MatrixBase<T>&	t_end,
+						const vector<U>&			mid_poses)
+{
+	using Scalar = typename T::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Twist  = Eigen::Vector<Scalar, 6>;
+	using SE3    = Eigen::Matrix4<Scalar>;
+
+	SE3  T_ini = ExpMapping(t_ini), T_end = ExpMapping(t_end);
+	Vec3 p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
+	Vec3 w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
+
+	// transfer to new container
+	std::vector<Vec3> poses; poses.reserve(mid_poses.size() + 2);
+	poses.push_back(p_ini);
+	poses.insert(poses.end(), mid_poses.begin(), mid_poses.end());
+	poses.push_back(p_end);
+
+	auto pos_func = GetBezierSplineFunction(poses);
+	auto bezier_splin_func = [pos_func = pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+		SE3 T_cur = SE3::Identity();
+		T_cur.block(0, 3, 3, 1) = pos_func(t);
+		T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
+		return LogMapSE3Tose3(T_cur);
+	};
+	return bezier_splin_func;
 }
 
 template<class Scalar>
@@ -465,7 +523,7 @@ GetBezierInterSplineFunction(const vector<Eigen::Vector3<Scalar>>& pList, double
 	auto bezier_splin_func = [splin_funcs = spline_funcs]
 	(Scalar t)->Vec3 {
 		static Scalar step = 1. / splin_funcs.size();
-		int idx = t > 1 ? splin_funcs.size() - 1 : t / step;
+		int idx = t >= 1.0 ? splin_funcs.size() - 1 : t / step;
 		Scalar t_input = t / step - idx;
 		return splin_funcs[idx](t_input);
 	};
@@ -477,7 +535,7 @@ template<class Scalar>
 function<Eigen::Vector3<Scalar>(Scalar)>
 GetBezierInterSplineFunction(const Eigen::Vector3<Scalar>& p_ini, 
 							 const Eigen::Vector3<Scalar>& p_end, 
-							 const Eigen::Vector3<Scalar>& pList, 
+							 const std::vector<Eigen::Vector3<Scalar>>& pList, 
 							 double insertLength = 0.18)
 {
 	using Vec3 = Eigen::Vector3<Scalar>;
@@ -499,7 +557,8 @@ GetBezierInterSplineFunction(const Eigen::MatrixBase<T>& t_ini,
 	using Twist  = Eigen::Vector<Scalar, 6>;
 	using SE3    = Eigen::Matrix4<Scalar>;
 
-	Vec3 p_ini = t_ini.block(3, 0, 3, 1), p_end = t_end.block(3, 0, 3, 1);
+	SE3  T_ini = ExpMapping(t_ini), T_end = ExpMapping(t_end);
+	Vec3 p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
 	Vec3 w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
 
 	auto pos_func = GetBezierInterSplineFunction(p_ini, p_end, pList, insertLength);
@@ -513,55 +572,101 @@ GetBezierInterSplineFunction(const Eigen::MatrixBase<T>& t_ini,
 	return bezier_splin_func;
 }
 
-
 enum class BSplineNodeDefinition { Uniform, QuasiUniform, NonUniform };
-template<class _AnyVec>
-class BSpline :function<_AnyVec(double)>
+template<Vec3Convertible Derived>
+class BSpline
 {
-	using Scalar = typename _AnyVec::Scalar;
+	using Scalar = typename Derived::Scalar;
 	using DynMat = DynMatrix<Scalar>;
+	
 public:
-	BSpline(const vector<_AnyVec>& pList, uint32_t order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
-	_AnyVec operator()(Scalar t);
+	BSpline(const Derived& ini, const Derived& end, const vector<Derived>& mid_pos, uint32_t order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
+	BSpline(const vector<Derived>& poses, uint32_t order = 3, bool IsInterpolation = false, BSplineNodeDefinition mode = BSplineNodeDefinition::Uniform);
+	Derived operator()(Scalar t) const;
 
 private:
+	void PreCaculation(BSplineNodeDefinition mode, int order, bool is_interpolation);
 	void Elevation();
-	void CalculateControlPoints(const vector<_AnyVec>& pList);
+	void CalculateControlPoints(const vector<Derived>& poses);
 
-	int cur_order_ = 0;
+	int										 cur_order_ = 0;
+	vector<Scalar>							 u_list_;
+	vector<Derived>							 poses_;
 	vector<vector<function<Scalar(Scalar)>>> base_;
-	vector<Scalar>  u_list_;
-	vector<_AnyVec> poses_;
-
 };
 
-template<class _AnyVec>
-BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, uint32_t order, bool isInterpolation, BSplineNodeDefinition mode) :
-	poses_(pList), base_(order + 1)
+template<Vec6Convertible T, Vec3Convertible U>
+	requires ScalarSame<T, U>
+function<Twist<typename T::Scalar>(typename T::Scalar)>
+GetBSplineInterFunction(const Eigen::MatrixBase<T>& t_ini,
+						const Eigen::MatrixBase<T>& t_end,
+						const std::vector<U>&		mid_poses,
+						bool						is_interpolation)
+{
+	using Scalar = typename T::Scalar;
+	using Vec3 = Eigen::Vector3<Scalar>;
+	using Twist = Eigen::Vector<Scalar, 6>;
+	using SE3 = Eigen::Matrix4<Scalar>;
+
+	SE3  T_ini = ExpMapping(t_ini), T_end = ExpMapping(t_end);
+	Vec3 p_ini = T_ini.block(0, 3, 3, 1), p_end = T_end.block(0, 3, 3, 1);
+	Vec3 w_ini = t_ini.block(0, 0, 3, 1), w_end = t_end.block(0, 0, 3, 1);
+
+	auto pos_func = BSpline(p_ini, p_end, mid_poses, 3, is_interpolation, BSplineNodeDefinition::QuasiUniform);
+	auto bsplin_func = [pos_func = pos_func, w_ini = w_ini, w_end = w_end]
+	(Scalar t)->Twist {
+		SE3 T_cur = SE3::Identity();
+		T_cur.block(0, 3, 3, 1) = pos_func(t);
+		T_cur.block(0, 0, 3, 3) = Roderigues(Lerp(w_ini, w_end, t));
+		return LogMapSE3Tose3(T_cur);
+	};
+	return bsplin_func;
+}
+
+
+template<Vec3Convertible Derived>
+BSpline<Derived>::BSpline(const Derived& ini, const Derived& end, const std::vector<Derived>& poses, uint32_t order, bool is_interpolation, BSplineNodeDefinition mode):
+	base_(order + 1)
+{
+	// setting the poses data
+	poses_.reserve(poses.size() + 2);
+	poses_.push_back(ini);
+	poses_.insert(poses_.end(), poses.begin(), poses.end());
+	poses_.push_back(end);
+
+	PreCaculation(mode, order, is_interpolation);
+}
+
+
+template<Vec3Convertible Derived>
+BSpline<Derived>::BSpline(const std::vector<Derived>& poses, uint32_t order, bool is_interpolation, BSplineNodeDefinition mode) :
+	poses_(poses), base_(order + 1)
 {	
-	switch (const unsigned
-		N = pList.size() + order + 1,
-		pad_num = order,
-		RegionNum = N - 2 * pad_num - 1
-		; mode)
+	PreCaculation(mode, order, is_interpolation);
+}
+
+template<Vec3Convertible Derived>
+void BSpline<Derived>::PreCaculation(BSplineNodeDefinition mode, int order, bool is_interpolation) {
+	const uint32_t N	        = poses_.size() + order + 1,
+				   pad_count    = order;
+	const uint32_t region_count = N - 2 * pad_count - 1;
+	switch (mode)
 	{
-    case BSplineNodeDefinition::Uniform: {
-		const Scalar BorderPadding = 1.0 / RegionNum * pad_num;
-		u_list_ = Linspace(-BorderPadding, 
-						  static_cast<Scalar>(1.0 + BorderPadding), 
-						  N);
+	case BSplineNodeDefinition::Uniform: {
+		const Scalar BorderPadding = 1.0 / region_count * pad_count;
+		u_list_ = Linspace(-BorderPadding, static_cast<Scalar>(1.0 + BorderPadding), N);
 		break;
 	}
-    case BSplineNodeDefinition::QuasiUniform: {
-		auto temp = Linspace(static_cast<Scalar>(0.0),
-							 static_cast<Scalar>(1.0),
-							 RegionNum + 1);
-		u_list_.insert(u_list_.cbegin(), pad_num, 0.0);
-		u_list_.insert(u_list_.cbegin() + pad_num, pad_num, 1.0);
-		u_list_.insert(u_list_.cbegin() + pad_num, temp.begin(), temp.end());
+	case BSplineNodeDefinition::QuasiUniform: {
+		
+		auto temp = Linspace(static_cast<Scalar>(0.0), static_cast<Scalar>(1.0), region_count + 1);
+		u_list_.insert(u_list_.end(), pad_count, 0.0);
+		u_list_.insert(u_list_.end(), temp.begin(), temp.end());
+		u_list_.insert(u_list_.end(), pad_count, 1.0);
+		
 		break;
 	}
-    case BSplineNodeDefinition::NonUniform:
+	case BSplineNodeDefinition::NonUniform:
 		assert(false && "No Implementation");
 		break;
 	}
@@ -572,27 +677,35 @@ BSpline<_AnyVec>::BSpline(const vector<_AnyVec>& pList, uint32_t order, bool isI
 	}
 
 
-	if (isInterpolation)
+	if (is_interpolation)
 	{
 		if (mode != BSplineNodeDefinition::QuasiUniform)
 		{
 			assert(mode == BSplineNodeDefinition::QuasiUniform);
 			throw("Interpolation Only using in QuasiUniform");
 		}
-		CalculateControlPoints(pList);
+		CalculateControlPoints(poses_);
 	}
 }
 
 
-template<class _AnyVec>
-_AnyVec BSpline<_AnyVec>::operator()(Scalar t) {
-	_AnyVec val = _AnyVec::Zero();
+template<Vec3Convertible Derived>
+Derived BSpline<Derived>::operator()(Scalar t) const {
+	Derived val = Derived::Zero();
 	auto PIter = poses_.begin();
 	auto FIter = base_[cur_order_ - 1].begin();
-
+		
 	for (; PIter != poses_.end(); ++PIter, ++FIter)
 	{
 		val += (*FIter)(t) * (*PIter);
+	}	
+	if (val == Derived::Zero()) {
+		if (t <= 0.0) {
+			return poses_.front();
+		}
+		else if (t >= 1.0) {
+			return poses_.back();
+		}
 	}
 	return val;
 
@@ -608,9 +721,9 @@ _AnyVec BSpline<_AnyVec>::operator()(Scalar t) {
 		/* No Test But May get lower efficiency Cause sum function */
 }
 
-template<class _AnyVec>
+template<Vec3Convertible Derived>
 void
-BSpline<_AnyVec>::Elevation()
+BSpline<Derived>::Elevation()
 {
 	auto& cur_base = base_[cur_order_];
 	const int N = u_list_.size() - cur_order_ - 1;
@@ -618,32 +731,40 @@ BSpline<_AnyVec>::Elevation()
 	if (cur_order_ == 0)
 	{
 		for (int i = 0; i < N; ++i)
-		{
-			cur_base[i] = [this, idx = i](Scalar t)->Scalar {
-				return u_list_[idx] <= t && t < u_list_[idx + 1] ? 1 : 0;
-			};
+		{		
+			cur_base[i] = [lower = u_list_[i], upper = u_list_[i + 1]](Scalar t)->Scalar {
+				return lower <= t && t < upper ? 1 : 0;
+			};		
 		}
 	}
 	else
 	{
+
 		for (int i = 0; i < N; ++i)
 		{
-			cur_base[i] = [this, k = cur_order_, idx = i](Scalar t)->Scalar {
-				Scalar prev = u_list_[idx + k] - u_list_[idx];
-				Scalar next = u_list_[idx + k + 1] - u_list_[idx + 1];
-				prev = (prev == 0 ? 1 : prev);
-				next = (next == 0 ? 1 : next);
-				return (t - u_list_[idx]) / prev * base_[k - 1][idx](t) + 
-					   (u_list_[idx + k + 1] - t) / next * base_[k - 1][idx + 1](t);
+			Scalar lower_div = u_list_[i + cur_order_] - u_list_[i];
+			Scalar upper_div = u_list_[i + cur_order_ + 1] - u_list_[i + 1];
+			if (lower_div == 0) lower_div = 1;
+			if (upper_div == 0) upper_div = 1;
+			
+			// FIXME: same as above
+			cur_base[i] = [lower_div = lower_div,
+						   upper_div  = upper_div,
+						   lower = u_list_[i],
+						   upper = u_list_[i + cur_order_ + 1],
+						   lower_func = base_[cur_order_ - 1][i],
+						   upper_func = base_[cur_order_ - 1][i + 1]]
+			(Scalar t)->Scalar {				
+				return (t - lower) / lower_div * lower_func(t) + (upper - t) / upper_div * upper_func(t);
 			};
 		}
 	}
 	++cur_order_;
 }
 
-template<class _AnyVec>
+template<Vec3Convertible Derived>
 void
-BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
+BSpline<Derived>::CalculateControlPoints(const vector<Derived>& pList_int)
 {	
 	auto& BaseFuncs = base_[cur_order_ - 1];
 	const int N   = pList_int.size();
@@ -670,7 +791,7 @@ BSpline<_AnyVec>::CalculateControlPoints(const vector<_AnyVec>& pList_int)
 	}
 
 	GaussSeidelSolver<Scalar> solve;
-	vector<_AnyVec> controlPoints(N - 2);
+	vector<Derived> controlPoints(N - 2);
 	for (int dim = 0; dim < DIM; ++dim)
 	{
 		catBorder(0, 0) = pList_int.front()(dim, 0);

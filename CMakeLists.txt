@@ -7,10 +7,11 @@ file(GLOB_RECURSE SOURCE_FILES "source/*.c" "source/*.cpp")
 #____________________ Keep File Path Structrue ________________________________________
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${HEADER_FILES} ${SOURCE_FILES})
 
-find_package(glad REQUIRED)
-find_package(GLM REQUIRED)
-find_package(glfw3 REQUIRED)
-find_package(Eigen3 REQUIRED)
+find_package(glad		REQUIRED)
+find_package(GLM		REQUIRED)
+find_package(glfw3		REQUIRED)
+find_package(Eigen3		REQUIRED)
+find_package(magic_enum REQUIRED)
 
 add_library(${TARGET_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
@@ -24,12 +25,12 @@ target_include_directories(${TARGET_NAME} PUBLIC
 	${EIGEN_INCLUDE_DIR}
 )
 
-
 target_link_libraries(${TARGET_NAME} PUBLIC
 	glad::glad
 	glm::glm
 	glfw
 	Eigen3::Eigen
+	magic_enum::magic_enum
 )
 
 target_include_directories(
