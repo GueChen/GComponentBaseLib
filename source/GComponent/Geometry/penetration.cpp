@@ -11,7 +11,7 @@ bool GComponent::PenetrationSphereSphere(PenetrationOutput& output, float radius
 	Vec3f diff	   = trans_B - trans_A,
 		  diff_dir = diff.normalized();
 
-	output.normal	 = diff_dir;
+	output.normal	 = diff_dir;	
 	output.depth	 = radius_A + radius_B - diff.norm();
 	output.closest_a = trans_A + radius_A * diff_dir;
 	output.closest_b = trans_B - radius_B * diff_dir;
@@ -236,10 +236,14 @@ bool PenetrationOBBCapsule(PenetrationOutput& output, const Vec3f& half_box, con
 	// |     |/    |
 	// +-----+
 	if (sq_d != 0) {
+		const float sq_d = SqrDistPointSeg(on_box, p_a, p_b, &on_seg);
+
 		Vec3f diff = on_box - on_seg,
 			diff_dir = diff.normalized();
+				
 		output.normal = diff_dir;
 		output.depth  = radius - sqrtf(sq_d);
+
 		output.closest_a = on_seg + radius * diff_dir;
 		output.closest_b = on_box;
 

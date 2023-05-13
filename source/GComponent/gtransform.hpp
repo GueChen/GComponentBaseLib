@@ -13,6 +13,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/LU>
+#include <Eigen/Geometry>
 
 #include <tuple>
 
@@ -22,6 +23,7 @@ using Eigen::Matrix;
 using Eigen::Vector;
 using std::pair;
 using std::tuple;
+
 
 /// <summary>
 /// make 3 x 3 shear matrix form 3 x 1 shear vector
@@ -651,6 +653,104 @@ rtDecompositionMat4(const Eigen::MatrixBase<Derived>& mat)
 	Vec3	t	= mat.block(0, 3, 3, 1),
 			r	= LogMapSO3Toso3(mat.block(0, 0, 3, 3));
 	return {r, t};
+}
+
+
+/*____________________________________Rotation Process Ðý×ª´¦Àí________________________________*/
+template<class Scalar>
+Eigen::Matrix3<Scalar> RotZ(Scalar q) {
+	Eigen::Matrix3<Scalar> rot;
+	rot << cos(q), -sin(q), 0,
+		   sin(q), cos(q),  0,
+			    0,      0,  1;
+	return rot;
+}
+
+template<class Scalar>
+Eigen::Matrix3<Scalar> RotY(Scalar q) {
+	Eigen::Matrix3<Scalar> rot;
+	rot << cos(q), 0, sin(q),
+			    0, 1,      0,
+		  -sin(q), 0, cos(q);
+	return rot;
+}
+
+template<class Scalar>
+Eigen::Matrix3<Scalar> RotX(Scalar q) {
+	Eigen::Matrix3<Scalar> rot;
+	rot <<1,      0,       0,
+		  0, cos(q), -sin(q),
+		  0, sin(q),  cos(q);		
+	return rot;
+}
+
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar> 
+ToZYXEuler(const Eigen::MatrixBase<Derived>& vec) {
+	assert(vec.rows() == 3 && vec.cols() == 1 && "so3 only support 3 x 1 vector, the size not matching");
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+		
+	Scalar angle  = vec.norm();	
+	Vec3   axis   = vec.normalized();
+				
+	Scalar sin_v = std::sin(angle / 2.0);
+	Scalar cos_v = std::cos(angle / 2.0);
+
+	Scalar x = axis.x() * sin_v;
+	Scalar y = axis.y() * sin_v;
+	Scalar z = axis.z() * sin_v;
+	Scalar w = cos_v;
+
+	Scalar eulerX = std::atan2(2 * (x * w + y * z), w * w - x * x - y * y + z * z);
+	Scalar eulerY = std::asin(-2 * (x * z - y * w));
+	Scalar eulerZ = std::atan2(2 * (x * y + z * w), w * w + x * x - y * y - z * z);
+
+	Vec3 euler(eulerX, eulerY, eulerZ);
+	return euler;
+}
+
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar>
+FromZYXEuler(const Eigen::MatrixBase<Derived>& vec) {
+	assert(vec.rows() == 3 && vec.cols() == 1 && "ZYXEuler only support 3 x 1 vector, the size not matching");
+	using Scalar = typename Derived::Scalar;
+	
+	Eigen::Matrix3<Scalar> mat = RotZ(vec.z()) * RotY(vec.y()) * RotX(vec.x());
+	return LogMapSO3Toso3(mat);
+}
+
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar>
+ToXYZEuler(const Eigen::MatrixBase<Derived>& vec) {
+	assert(vec.rows() == 3 && vec.cols() == 1 && "so3 only support 3 x 1 vector, the size not matching");
+
+	using Scalar = typename Derived::Scalar;
+	using Vec3   = Eigen::Vector3<Scalar>;
+	using Mat3   = Eigen::Matrix3<Scalar>;
+
+	Scalar angle  = vec.norm();	
+	Vec3   axis   = vec.normalized();
+				
+	Eigen::AngleAxis<Scalar> angle_axis(angle, axis);
+	Mat3 mat = angle_axis.toRotationMatrix();
+
+	Scalar euler_x = atan2(-mat(1, 2), mat(2, 2));
+	Scalar euler_y = asin(mat(0, 2));
+	Scalar euler_z = atan2(-mat(0, 1), mat(0, 0));
+
+	Vec3 euler(euler_x, euler_y, euler_z);
+	return euler;
+}
+
+template<Vec3Convertible Derived>
+Eigen::Vector3<typename Derived::Scalar>
+FromXYZEuler(const Eigen::MatrixBase<Derived>& vec) {
+	assert(vec.rows() == 3 && vec.cols() == 1 && "XYZEuler only support 3 x 1 vector, the size not matching");
+	using Scalar = typename Derived::Scalar;
+	
+	Eigen::Matrix3<Scalar> mat = RotX(vec.x()) * RotY(vec.y()) * RotZ(vec.z());
+	return LogMapSO3Toso3(mat);
 }
 
 }
